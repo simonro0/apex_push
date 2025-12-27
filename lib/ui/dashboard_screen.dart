@@ -6,13 +6,33 @@ import '../../logic/workout_provider.dart';
 import 'widgets/workout_stat_card.dart';
 import 'workout/workout_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Use addPostFrameCallback to ensure the widget tree is built
+    // before we trigger provider updates.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<WorkoutProvider>();
+      provider.loadHistoryFromDb();
+      provider.loadPlan();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // We use context.watch here so the UI rebuilds whenever
+    // the provider calls notifyListeners()
     final provider = context.watch<WorkoutProvider>();
     final plan = provider.plan;
+    final history = provider.history;
 
     return Scaffold(
       appBar: AppBar(
@@ -20,14 +40,21 @@ class DashboardScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: Icon(Icons.upload_file),
-            onPressed: () => CsvService.exportToCsv(provider.history),
+            onPressed: () => CsvService.exportToCsv(history),
             tooltip: "Export CSV",
           ),
           IconButton(
             icon: Icon(Icons.download),
             onPressed: () async {
               final imported = await CsvService.importFromCsv();
-              provider.saveMultipleWorkouts(imported);
+              if (imported.isNotEmpty) {
+                await provider.saveMultipleWorkouts(imported);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("Imported ${imported.length} workouts"),
+                  ),
+                );
+              }
             },
             tooltip: "Import CSV",
           ),
@@ -35,7 +62,7 @@ class DashboardScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // 1. STATS OVERVIEW CARD
+          // Goal Overview
           Container(
             padding: EdgeInsets.all(20),
             margin: EdgeInsets.all(16),
@@ -50,15 +77,11 @@ class DashboardScreen extends StatelessWidget {
                   "${plan.dailyTarget}",
                   style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
                 ),
-                LinearProgressIndicator(
-                  value: 0.4, // Calculate: totalToday / dailyTarget
-                  backgroundColor: Colors.black26,
-                ),
+                // Optional: You could calculate progress for the current day here
               ],
             ),
           ),
 
-          // 2. RECENT ACTIVITY HEADER
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
@@ -68,19 +91,24 @@ class DashboardScreen extends StatelessWidget {
                   "History",
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                TextButton(onPressed: () {}, child: Text("See All")),
+                if (history.isNotEmpty)
+                  Text(
+                    "${history.length} sessions",
+                    style: TextStyle(color: Colors.grey),
+                  ),
               ],
             ),
           ),
 
-          // 3. HISTORY LIST (Marked Data)
           Expanded(
-            child: ListView.builder(
-              itemCount: provider.history.length,
-              itemBuilder: (context, index) {
-                return WorkoutStatCard(provider.history[index]);
-              },
-            ),
+            child: history.isEmpty
+                ? Center(child: Text("No workouts yet. Start training!"))
+                : ListView.builder(
+                    itemCount: history.length,
+                    itemBuilder: (context, index) {
+                      return WorkoutStatCard(history[index]);
+                    },
+                  ),
           ),
         ],
       ),

@@ -8,7 +8,7 @@ import '../models/workout.dart';
 
 class WorkoutProvider with ChangeNotifier {
   final SensorService _sensors = SensorService();
-  final List<Workout> _history = [];
+  List<Workout> _history = [];
   final TrainingPlan _currentPlan = TrainingPlan(dailyTarget: 20);
 
   int _currentSessionCount = 0;
@@ -53,7 +53,6 @@ class WorkoutProvider with ChangeNotifier {
     if (_startTime == null) return;
 
     final duration = DateTime.now().difference(_startTime!).inSeconds;
-    // Prevent division by zero if session is 0 seconds
     double rpm = duration > 0 ? (_currentSessionCount / (duration / 60)) : 0;
 
     final newWorkout = Workout(
@@ -62,10 +61,14 @@ class WorkoutProvider with ChangeNotifier {
       durationSeconds: duration,
       avgRpm: rpm,
       isVerified: _lastRepVerified,
+      isImported: false,
     );
 
-    _history.insert(0, newWorkout);
-    notifyListeners();
+    // Persist to SQLite
+    await DatabaseHelper.instance.createWorkout(newWorkout);
+
+    // Refresh local list
+    await loadHistoryFromDb();
   }
 
   // Persists the new target to local storage so it survives app restarts
@@ -99,6 +102,12 @@ class WorkoutProvider with ChangeNotifier {
   Future<void> loadPlan() async {
     final prefs = await SharedPreferences.getInstance();
     _currentPlan.dailyTarget = prefs.getInt('daily_target') ?? 20;
+    notifyListeners();
+  }
+
+  // This is called when the app starts and after imports
+  Future<void> loadHistoryFromDb() async {
+    _history = await DatabaseHelper.instance.readAllWorkouts();
     notifyListeners();
   }
 }
