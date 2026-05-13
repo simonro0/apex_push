@@ -132,17 +132,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       if (!mounted) return;
     }
 
-    final direction = await _showFeedbackDialog(context);
-    if (direction == null || !mounted) return;
+    if (!isFree) {
+      final direction = await _showFeedbackDialog(context);
+      if (direction == null || !mounted) return;
 
-    await provider.stepDifficulty(direction);
-    if (!mounted) return;
+      await provider.stepDifficulty(direction);
+      if (!mounted) return;
 
-    if (direction != 'keep') {
-      await _showLevelChangedDialog(context, provider);
+      if (direction != 'keep') {
+        await _showLevelChangedDialog(context, provider);
+      }
+
+      if (!mounted) return;
     }
 
-    if (!mounted) return;
     Navigator.pop(context);
   }
 

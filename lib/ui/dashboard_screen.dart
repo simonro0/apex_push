@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../data/csv_service.dart';
+import '../l10n/app_localizations.dart';
 import '../logic/workout_provider.dart';
 import '../models/workout.dart';
 import 'level_picker_screen.dart';
 import 'record_screen.dart';
-import 'widgets/workout_stat_card.dart';
+import 'settings_screen.dart';
 import 'workout/workout_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -33,22 +33,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ApexPush'),
+        title: Text(context.t('app_title')),
         actions: [
           IconButton(
-            icon: const Icon(Icons.upload_file),
-            tooltip: 'CSV exportieren',
-            onPressed: () => CsvService.exportToCsv(provider.history),
-          ),
-          IconButton(
-            icon: const Icon(Icons.download),
-            tooltip: 'CSV importieren',
-            onPressed: () => _importCsv(context, provider),
-          ),
-          IconButton(
-            icon: const Icon(Icons.restore),
-            tooltip: '.puud importieren',
-            onPressed: () => _importPuud(context, provider),
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: context.t('settings'),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
           ),
         ],
       ),
@@ -58,37 +51,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _StatsBar(provider: provider),
           _ActiveProgramTile(
             program: provider.activeProgram,
-            onTap:   () => _openLevelPicker(context, provider),
+            onTap: () => _openLevelPicker(context, provider),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Verlauf', style: Theme.of(context).textTheme.headlineSmall),
-                if (provider.history.isNotEmpty)
-                  Text(
-                    '${provider.history.length} Sessions',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: provider.history.isEmpty
-                ? const Center(child: Text('Kein Training vorhanden. Jetzt starten!'))
-                : ListView.builder(
-                    itemCount: provider.history.length,
-                    itemBuilder: (_, i) => WorkoutStatCard(provider.history[i]),
-                  ),
-          ),
+          const Expanded(child: _HeroImage()),
           _NavigationButtons(provider: provider),
         ],
       ),
     );
   }
-
-  // ── Level picker ───────────────────────────────────────────────────────────
 
   Future<void> _openLevelPicker(
       BuildContext context, WorkoutProvider provider) async {
@@ -102,37 +72,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await provider.saveActiveProgram(result);
     }
   }
+}
 
-  // ── Import helpers ─────────────────────────────────────────────────────────
+// ── Hero image (push-up illustration, background cut out via luminosity mask) ─
 
-  Future<void> _importCsv(BuildContext context, WorkoutProvider provider) async {
-    final imported = await CsvService.importFromCsv();
-    if (!context.mounted) return;
-    if (imported.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Keine Daten importiert.')),
-      );
-      return;
-    }
-    await provider.saveMultipleWorkouts(imported);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${imported.length} Einträge importiert.')),
+class _HeroImage extends StatelessWidget {
+  const _HeroImage();
+
+  // Luminosity-to-alpha with threshold: A' = 3*lum - 0.302
+  // Dark pixels (background ~#0d0d0d) become fully transparent.
+  // Bright / coloured pixels remain opaque.
+  static const _cutoutFilter = ColorFilter.matrix([
+    1, 0, 0, 0, 0,
+    0, 1, 0, 0, 0,
+    0, 0, 1, 0, 0,
+    0.6378, 2.1456, 0.2166, 0, -77,
+  ]);
+
+  @override
+  Widget build(BuildContext context) {
+    return ColorFiltered(
+      colorFilter: _cutoutFilter,
+      child: Image.asset(
+        'assets/images/pushup.png',
+        fit: BoxFit.contain,
+        alignment: Alignment.bottomCenter,
+      ),
     );
-  }
-
-  Future<void> _importPuud(BuildContext context, WorkoutProvider provider) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Datei wird geöffnet…')),
-    );
-    final count = await provider.importFromPuud();
-    if (!context.mounted) return;
-    final msg = switch (count) {
-      -1 => 'Abgebrochen.',
-      0  => 'Keine Daten gefunden.',
-      _  => '$count Einträge importiert.',
-    };
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 }
 
@@ -150,10 +116,16 @@ class _StatsBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _StatCell(label: 'Best Record', value: '${provider.bestDayCount}/d'),
-          _StatCell(label: 'Total',       value: '${provider.totalCount}'),
           _StatCell(
-            label: 'Average',
+            label: context.t('best_record'),
+            value: '${provider.bestDayCount}/d',
+          ),
+          _StatCell(
+            label: context.t('total'),
+            value: '${provider.totalCount}',
+          ),
+          _StatCell(
+            label: context.t('average'),
             value: '${provider.averageDailyCount.toStringAsFixed(0)}/d',
           ),
         ],
@@ -176,9 +148,9 @@ class _StatCell extends StatelessWidget {
         Text(
           value,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.primary,
-          ),
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
         ),
       ],
     );
@@ -190,7 +162,7 @@ class _StatCell extends StatelessWidget {
 class _ActiveProgramTile extends StatelessWidget {
   const _ActiveProgramTile({required this.program, required this.onTap});
   final ActiveProgram program;
-  final VoidCallback  onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +175,7 @@ class _ActiveProgramTile extends StatelessWidget {
             const Icon(Icons.fitness_center, size: 18),
             const SizedBox(width: 8),
             Text(
-              'Aktuelles Level: ',
+              '${context.t('current_level')}: ',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             Text(
@@ -248,7 +220,10 @@ class _NavigationButtons extends StatelessWidget {
                   ),
                 ),
                 icon: const Icon(Icons.play_arrow),
-                label: const Text('TRAINING', style: TextStyle(fontSize: 17)),
+                label: Text(
+                  context.t('training'),
+                  style: const TextStyle(fontSize: 17),
+                ),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const WorkoutScreen()),
@@ -267,11 +242,15 @@ class _NavigationButtons extends StatelessWidget {
                       ),
                     ),
                     icon: const Icon(Icons.self_improvement, size: 20),
-                    label: const Text('PRACTICE', style: TextStyle(fontSize: 15)),
+                    label: Text(
+                      context.t('practice'),
+                      style: const TextStyle(fontSize: 15),
+                    ),
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const WorkoutScreen(isFreeTraining: true),
+                        builder: (_) =>
+                            const WorkoutScreen(isFreeTraining: true),
                       ),
                     ),
                   ),
@@ -286,11 +265,15 @@ class _NavigationButtons extends StatelessWidget {
                       ),
                     ),
                     icon: const Icon(Icons.bar_chart, size: 20),
-                    label: const Text('RECORD', style: TextStyle(fontSize: 15)),
+                    label: Text(
+                      context.t('record'),
+                      style: const TextStyle(fontSize: 15),
+                    ),
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => RecordScreen(history: provider.history),
+                        builder: (_) =>
+                            RecordScreen(history: provider.history),
                       ),
                     ),
                   ),
