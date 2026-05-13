@@ -60,7 +60,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   int _setCountFrom(WorkoutProvider p) => p.currentCount - _setStartCount;
-  int get _setsTotal => _targetReps.length;
+  int get _setsTotal  => _targetReps.length;
+  bool get _isBurnout => !widget.isFreeTraining && _currentSet >= _setsTotal;
   int _targetFor(int i) => i < _targetReps.length ? _targetReps[i] : 0;
 
   Color _finishButtonColor(int setCount, int target) {
@@ -95,11 +96,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void _finishSet(WorkoutProvider provider) {
     provider.recordSetSplit(_setCountFrom(provider));
 
-    if (_currentSet >= _setsTotal - 1) {
+    if (_isBurnout) {
       _finish(provider);
       return;
     }
 
+    // Always rest after each regular set; when _currentSet reaches _setsTotal
+    // after rest, _isBurnout becomes true and the burnout set begins.
     _startRest(provider);
   }
 
@@ -281,15 +284,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Widget _buildActiveSet(WorkoutProvider provider) {
-    final setCount = _setCountFrom(provider);
-    final target   = _targetFor(_currentSet);
-    final isLast   = _currentSet >= _setsTotal - 1;
-    final atTarget = setCount >= target;
+    final setCount  = _setCountFrom(provider);
+    final target    = _targetFor(_currentSet);
+    final isBurnout = _isBurnout;
+    final atTarget  = isBurnout || setCount >= target;
 
     final buttonColor = _finishButtonColor(setCount, target);
     final buttonLabel = atTarget
-        ? context.tr(isLast ? 'finish_training' : 'finish_set')
-        : context.tr(isLast ? 'abort_training_btn' : 'abort_set_btn');
+        ? context.tr(isBurnout ? 'finish_training' : 'finish_set')
+        : context.tr('abort_set_btn');
 
     return GestureDetector(
       onTap: () => _onTap(provider),
@@ -301,10 +304,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             left: 0,
             right: 0,
             child: _SetOverview(
-              setsTotal:  _setsTotal,
-              currentSet: _currentSet,
-              targetReps: _targetReps,
-              splits:     provider.sessionSplits,
+              setsTotal:   _setsTotal,
+              currentSet:  _currentSet,
+              targetReps:  _targetReps,
+              splits:      provider.sessionSplits,
+              hasBurnout:  !widget.isFreeTraining,
             ),
           ),
           Center(
@@ -312,22 +316,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  context.tp('set_x_of_y', {
-                    'set':   '${_currentSet + 1}',
-                    'total': '$_setsTotal',
-                  }),
+                  isBurnout
+                      ? context.t('burnout')
+                      : context.tp('set_x_of_y', {
+                          'set':   '${_currentSet + 1}',
+                          'total': '$_setsTotal',
+                        }),
                   style: const TextStyle(color: Colors.white54, fontSize: 20),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  context.tp('target_reps', {'n': '$target'}),
-                  style: const TextStyle(color: Colors.white38, fontSize: 15),
-                ),
+                if (!isBurnout)
+                  Text(
+                    context.tp('target_reps', {'n': '$target'}),
+                    style: const TextStyle(color: Colors.white38, fontSize: 15),
+                  ),
                 Text(
                   '$setCount',
                   style: TextStyle(
                     fontSize: 160,
-                    color: atTarget ? Colors.greenAccent : Colors.white,
+                    color: (isBurnout && setCount > 0) || (!isBurnout && atTarget)
+                        ? Colors.greenAccent
+                        : Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -352,7 +361,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   ),
                   onPressed: () async {
                     if (!atTarget) {
-                      final ok = await _showAbortSetDialog(context, isLast);
+                      final ok = await _showAbortSetDialog(context, isBurnout);
                       if (ok != true || !mounted) return;
                     }
                     _finishSet(provider);
@@ -383,8 +392,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Widget _buildRestPhase(WorkoutProvider provider) {
-    final nextTarget = _targetFor(_currentSet);
-    final isLast3    = _restSecondsLeft <= 3;
+    final nextTarget    = _targetFor(_currentSet);
+    final nextIsBurnout = !widget.isFreeTraining && _currentSet >= _setsTotal;
+    final isLast3       = _restSecondsLeft <= 3;
 
     return Stack(
       children: [
@@ -397,6 +407,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             currentSet: _currentSet,
             targetReps: _targetReps,
             splits:     provider.sessionSplits,
+            hasBurnout: !widget.isFreeTraining,
           ),
         ),
         Center(
@@ -419,7 +430,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                context.tp('next_set_reps', {'n': '$nextTarget'}),
+                nextIsBurnout
+                    ? context.t('burnout_next')
+                    : context.tp('next_set_reps', {'n': '$nextTarget'}),
                 style: const TextStyle(color: Colors.white54, fontSize: 16),
               ),
             ],
@@ -455,32 +468,45 @@ class _SetOverview extends StatelessWidget {
     required this.currentSet,
     required this.targetReps,
     required this.splits,
+    this.hasBurnout = false,
   });
 
   final int        setsTotal;
   final int        currentSet;
   final List<int>  targetReps;
   final List<int>  splits;
+  final bool       hasBurnout;
 
   @override
   Widget build(BuildContext context) {
+    final burnoutIsCurrent = hasBurnout && currentSet >= setsTotal;
+    final burnoutAchieved  =
+        burnoutIsCurrent && setsTotal < splits.length ? splits[setsTotal] : null;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
-        children: List.generate(setsTotal, (i) {
-          final target    = i < targetReps.length ? targetReps[i] : 0;
-          final isDone    = i < currentSet;
-          final isCurrent = i == currentSet;
-          final achieved  = isDone && i < splits.length ? splits[i] : null;
+        children: [
+          ...List.generate(setsTotal, (i) {
+            final target    = i < targetReps.length ? targetReps[i] : 0;
+            final isDone    = i < currentSet;
+            final isCurrent = i == currentSet;
+            final achieved  = isDone && i < splits.length ? splits[i] : null;
 
-          return _SetChip(
-            index:     i,
-            target:    target,
-            achieved:  achieved,
-            isCurrent: isCurrent,
-          );
-        }),
+            return _SetChip(
+              index:     i,
+              target:    target,
+              achieved:  achieved,
+              isCurrent: isCurrent,
+            );
+          }),
+          if (hasBurnout)
+            _BurnoutChip(
+              isCurrent: burnoutIsCurrent,
+              achieved:  burnoutAchieved,
+            ),
+        ],
       ),
     );
   }
@@ -553,6 +579,51 @@ class _SetChip extends StatelessWidget {
           ),
           Text(
             sublabel,
+            style: TextStyle(color: fg.withAlpha(140), fontSize: 9),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Burnout chip ──────────────────────────────────────────────────────────────
+
+class _BurnoutChip extends StatelessWidget {
+  const _BurnoutChip({required this.isCurrent, this.achieved});
+  final bool isCurrent;
+  final int? achieved;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color bg = isCurrent ? Colors.deepOrange.shade800 : Colors.white10;
+    final Color fg = isCurrent ? Colors.white : Colors.white38;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: isCurrent
+            ? Border.all(color: Colors.orangeAccent, width: 1.5)
+            : null,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.local_fire_department,
+              size: 12, color: fg.withAlpha(180)),
+          Text(
+            achieved != null ? '${achieved!}' : context.t('burnout_chip'),
+            style: TextStyle(
+              color: fg,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            context.t('reps_short'),
             style: TextStyle(color: fg.withAlpha(140), fontSize: 9),
           ),
         ],

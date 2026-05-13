@@ -124,6 +124,10 @@ class AppLocalizations {
       'sensitivity_high': 'Hoch',
       'sensitivity_medium': 'Mittel',
       'sensitivity_low': 'Niedrig',
+      // ── Burnout set ───────────────────────────────────────────────────────
+      'burnout':      'BURNOUT',
+      'burnout_chip': 'max',
+      'burnout_next': 'Nächster Satz: BURNOUT',
       // ── Practice recommendation ───────────────────────────────────────────
       'practice_rec_title': 'Level-Empfehlung',
       'practice_rec_body':
@@ -255,6 +259,10 @@ class AppLocalizations {
       'sensitivity_high': 'High',
       'sensitivity_medium': 'Medium',
       'sensitivity_low': 'Low',
+      // ── Burnout set ───────────────────────────────────────────────────────
+      'burnout':      'BURNOUT',
+      'burnout_chip': 'max',
+      'burnout_next': 'Next set: BURNOUT',
       // ── Practice recommendation ───────────────────────────────────────────
       'practice_rec_title': 'Level Recommendation',
       'practice_rec_body':
