@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'audio_service.dart';
+
 class SettingsProvider with ChangeNotifier {
   // ── Appearance ─────────────────────────────────────────────────────────────
   ThemeMode _themeMode = ThemeMode.dark;
   String    _locale    = 'de';
 
   // ── Audio ──────────────────────────────────────────────────────────────────
-  bool _audioEnabled    = true;
-  bool _repSoundEnabled = true;
+  bool   _audioEnabled    = true;
+  bool   _repSoundEnabled = true;
+  double _audioVolume     = 1.0;
 
   // ── Training ───────────────────────────────────────────────────────────────
   int    _restSecondsEasy   = 30;
@@ -22,6 +25,7 @@ class SettingsProvider with ChangeNotifier {
   String    get locale           => _locale;
   bool      get audioEnabled     => _audioEnabled;
   bool      get repSoundEnabled  => _repSoundEnabled;
+  double    get audioVolume      => _audioVolume;
   int       get restSecondsEasy   => _restSecondsEasy;
   int       get restSecondsNormal => _restSecondsNormal;
   int       get restSecondsHard   => _restSecondsHard;
@@ -41,10 +45,12 @@ class SettingsProvider with ChangeNotifier {
     _locale           = prefs.getString('locale')              ?? 'de';
     _audioEnabled     = prefs.getBool('audio_enabled')         ?? true;
     _repSoundEnabled  = prefs.getBool('rep_sound_enabled')     ?? true;
+    _audioVolume      = prefs.getDouble('audio_volume')        ?? 1.0;
     _restSecondsEasy  = prefs.getInt('rest_easy')              ?? 30;
     _restSecondsNormal= prefs.getInt('rest_normal')            ?? 60;
     _restSecondsHard  = prefs.getInt('rest_hard')              ?? 120;
     _sensorThreshold  = prefs.getDouble('sensor_threshold')    ?? 12.0;
+    AudioService.instance.volume = _audioVolume;
     notifyListeners();
   }
 
@@ -73,6 +79,14 @@ class SettingsProvider with ChangeNotifier {
     _repSoundEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('rep_sound_enabled', value);
+    notifyListeners();
+  }
+
+  Future<void> setAudioVolume(double value) async {
+    _audioVolume = value;
+    AudioService.instance.volume = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('audio_volume', value);
     notifyListeners();
   }
 

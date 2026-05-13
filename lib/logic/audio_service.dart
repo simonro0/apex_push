@@ -9,7 +9,8 @@ class AudioService {
   AudioService._();
   static final AudioService instance = AudioService._();
 
-  bool _initialized = false;
+  bool   _initialized = false;
+  double volume       = 1.0;
 
   late final Uint8List _repBytes;
   late final Uint8List _countdownBytes;
@@ -58,25 +59,25 @@ class AudioService {
     if (!_initialized) return;
     final p = _repPool[_repIdx];
     _repIdx = (_repIdx + 1) % _repPool.length;
-    p.play(BytesSource(_repBytes));
+    p.play(BytesSource(_repBytes), volume: volume);
   }
 
   /// Played at 3 / 2 / 1 seconds remaining in rest.
   void playCountdown() {
     if (!_initialized) return;
-    _eventPlayer.play(BytesSource(_countdownBytes));
+    _eventPlayer.play(BytesSource(_countdownBytes), volume: volume);
   }
 
   /// Played when rest ends and the next set begins.
   void playRestEnd() {
     if (!_initialized) return;
-    _eventPlayer.play(BytesSource(_restEndBytes));
+    _eventPlayer.play(BytesSource(_restEndBytes), volume: volume);
   }
 
   /// Played once when the rep count first reaches the set target.
   void playTargetReached() {
     if (!_initialized) return;
-    _eventPlayer.play(BytesSource(_targetBytes));
+    _eventPlayer.play(BytesSource(_targetBytes), volume: volume);
   }
 
   // ── WAV synthesis ──────────────────────────────────────────────────────────

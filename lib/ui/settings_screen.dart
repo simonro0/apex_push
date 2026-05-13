@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/csv_service.dart';
 import '../l10n/app_localizations.dart';
+import '../logic/audio_service.dart';
 import '../logic/settings_provider.dart';
 import '../logic/workout_provider.dart';
-import '../data/csv_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -57,6 +58,25 @@ class SettingsScreen extends StatelessWidget {
             value: settings.audioEnabled && settings.repSoundEnabled,
             onChanged: settings.audioEnabled
                 ? (v) => settings.setRepSoundEnabled(v)
+                : null,
+          ),
+          _SliderTile(
+            icon: settings.audioVolume == 0
+                ? Icons.volume_off_outlined
+                : settings.audioVolume < 0.5
+                    ? Icons.volume_down_outlined
+                    : Icons.volume_up_outlined,
+            title: context.t('audio_volume'),
+            value: settings.audioVolume,
+            min: 0.0,
+            max: 1.0,
+            divisions: 20,
+            label: '${(settings.audioVolume * 100).round()} %',
+            onChanged: settings.audioEnabled
+                ? (v) => settings.setAudioVolume(v)
+                : (_) {},
+            onChangeEnd: settings.audioEnabled
+                ? (_) => AudioService.instance.playTargetReached()
                 : null,
           ),
           const Divider(height: 1),
@@ -416,16 +436,18 @@ class _SliderTile extends StatelessWidget {
     required this.divisions,
     required this.label,
     required this.onChanged,
+    this.onChangeEnd,
   });
 
-  final IconData             icon;
-  final String               title;
-  final double               value;
-  final double               min;
-  final double               max;
-  final int                  divisions;
-  final String               label;
-  final ValueChanged<double> onChanged;
+  final IconData              icon;
+  final String                title;
+  final double                value;
+  final double                min;
+  final double                max;
+  final int                   divisions;
+  final String                label;
+  final ValueChanged<double>  onChanged;
+  final ValueChanged<double>? onChangeEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -451,6 +473,7 @@ class _SliderTile extends StatelessWidget {
             max: max,
             divisions: divisions,
             onChanged: onChanged,
+            onChangeEnd: onChangeEnd,
           ),
         ),
       ],

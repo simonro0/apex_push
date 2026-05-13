@@ -114,6 +114,7 @@ class AppLocalizations {
       'audio': 'Audio',
       'audio_enabled': 'Audio-Feedback',
       'rep_sound': 'Ton pro Wiederholung',
+      'audio_volume': 'Lautstärke',
       // ── Training settings ─────────────────────────────────────────────────
       'training_settings': 'Training',
       'rest_easy': 'Pause (Leicht)',
@@ -230,6 +231,7 @@ class AppLocalizations {
       'audio': 'Audio',
       'audio_enabled': 'Audio Feedback',
       'rep_sound': 'Rep Sound',
+      'audio_volume': 'Volume',
       // ── Training settings ─────────────────────────────────────────────────
       'training_settings': 'Training',
       'rest_easy': 'Rest (Easy)',
