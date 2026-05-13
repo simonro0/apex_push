@@ -1,17 +1,22 @@
 import 'package:apex_push/ui/dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
 
 import 'logic/settings_provider.dart';
 import 'logic/workout_provider.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final binding = WidgetsFlutterBinding.ensureInitialized();
+  // Keep splash visible while orientation lock and providers initialise.
+  FlutterNativeSplash.preserve(widgetsBinding: binding);
+
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
   runApp(
     MultiProvider(
       providers: [
