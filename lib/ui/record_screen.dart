@@ -287,7 +287,7 @@ class _ComboChart extends StatelessWidget {
             groupsSpace:  0,
             barTouchData: BarTouchData(
               touchCallback: (FlTouchEvent event, BarTouchResponse? response) {
-                if (!event.isInterestedForInteractions) return;
+                if (event is! FlTapUpEvent) return;
                 if (response?.spot == null) return;
                 onBarTap(response!.spot!.touchedBarGroup.x);
               },

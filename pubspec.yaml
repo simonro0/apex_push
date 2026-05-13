@@ -44,6 +44,8 @@ dependencies:
   fl_chart: any
   flutter_native_splash: any
   audioplayers: any
+  flutter_local_notifications: any
+  timezone: any
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

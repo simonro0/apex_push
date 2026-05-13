@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
 
+import 'logic/notification_service.dart';
 import 'logic/settings_provider.dart';
 import 'logic/workout_provider.dart';
 
@@ -11,6 +12,8 @@ void main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   // Keep splash visible while orientation lock and providers initialise.
   FlutterNativeSplash.preserve(widgetsBinding: binding);
+
+  await NotificationService.instance.init();
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

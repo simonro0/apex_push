@@ -13,6 +13,11 @@ class SettingsProvider with ChangeNotifier {
   bool   _repSoundEnabled = true;
   double _audioVolume     = 1.0;
 
+  // ── Notifications ──────────────────────────────────────────────────────────
+  bool _notificationsEnabled = false;
+  int  _reminderHour         = 9;
+  int  _reminderMinute       = 0;
+
   // ── Training ───────────────────────────────────────────────────────────────
   int    _restSecondsEasy   = 30;
   int    _restSecondsNormal = 60;
@@ -23,6 +28,10 @@ class SettingsProvider with ChangeNotifier {
 
   ThemeMode get themeMode        => _themeMode;
   String    get locale           => _locale;
+  bool get notificationsEnabled => _notificationsEnabled;
+  int  get reminderHour         => _reminderHour;
+  int  get reminderMinute       => _reminderMinute;
+
   bool      get audioEnabled     => _audioEnabled;
   bool      get repSoundEnabled  => _repSoundEnabled;
   double    get audioVolume      => _audioVolume;
@@ -43,6 +52,9 @@ class SettingsProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _themeMode        = _modeFromString(prefs.getString('theme_mode') ?? 'dark');
     _locale           = prefs.getString('locale')              ?? 'de';
+    _notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
+    _reminderHour         = prefs.getInt('reminder_hour')          ?? 9;
+    _reminderMinute       = prefs.getInt('reminder_minute')        ?? 0;
     _audioEnabled     = prefs.getBool('audio_enabled')         ?? true;
     _repSoundEnabled  = prefs.getBool('rep_sound_enabled')     ?? true;
     _audioVolume      = prefs.getDouble('audio_volume')        ?? 1.0;
@@ -65,6 +77,22 @@ class SettingsProvider with ChangeNotifier {
     _locale = locale;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('locale', locale);
+    notifyListeners();
+  }
+
+  Future<void> setNotificationsEnabled(bool value) async {
+    _notificationsEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notifications_enabled', value);
+    notifyListeners();
+  }
+
+  Future<void> setReminderTime(int hour, int minute) async {
+    _reminderHour   = hour;
+    _reminderMinute = minute;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('reminder_hour', hour);
+    await prefs.setInt('reminder_minute', minute);
     notifyListeners();
   }
 

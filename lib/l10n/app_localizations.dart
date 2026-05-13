@@ -124,6 +124,15 @@ class AppLocalizations {
       'sensitivity_high': 'Hoch',
       'sensitivity_medium': 'Mittel',
       'sensitivity_low': 'Niedrig',
+      // ── Notifications ─────────────────────────────────────────────────────
+      'notifications': 'Benachrichtigungen',
+      'daily_reminder': 'Tägliche Erinnerung',
+      'daily_reminder_desc': 'Erinnert dich täglich ans Training',
+      'reminder_time': 'Uhrzeit',
+      'notifications_hint':
+          'Aktiviere die tägliche Erinnerung, um eine Benachrichtigung zu erhalten.',
+      'notif_title': 'Zeit für dein Training!',
+      'notif_body': 'Starte jetzt deine Liegestütze und erreiche dein Ziel.',
     },
     'en': {
       // ── App / Dashboard ──────────────────────────────────────────────────
@@ -241,6 +250,15 @@ class AppLocalizations {
       'sensitivity_high': 'High',
       'sensitivity_medium': 'Medium',
       'sensitivity_low': 'Low',
+      // ── Notifications ─────────────────────────────────────────────────────
+      'notifications': 'Notifications',
+      'daily_reminder': 'Daily Reminder',
+      'daily_reminder_desc': 'Reminds you to work out every day',
+      'reminder_time': 'Time',
+      'notifications_hint':
+          'Enable the daily reminder to receive a notification.',
+      'notif_title': 'Time for your workout!',
+      'notif_body': 'Start your push-ups now and reach your goal.',
     },
   };
 

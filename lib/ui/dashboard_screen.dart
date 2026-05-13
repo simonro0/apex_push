@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../logic/workout_provider.dart';
 import '../models/workout.dart';
 import 'level_picker_screen.dart';
+import 'notification_screen.dart';
 import 'record_screen.dart';
 import 'settings_screen.dart';
 import 'workout/workout_screen.dart';
@@ -37,6 +38,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: Text(context.t('app_title')),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            tooltip: context.t('notifications'),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: context.t('settings'),
