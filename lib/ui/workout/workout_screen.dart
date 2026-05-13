@@ -36,19 +36,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final p        = context.read<WorkoutProvider>();
+
+    // Read target reps synchronously so the first frame shows correct values.
+    if (!widget.isFreeTraining) {
+      final prog = context.read<WorkoutProvider>().activeProgram;
+      _targetReps = TrainingData.getReps(prog.unitId, prog.difficulty);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       final settings = context.read<SettingsProvider>();
-
-      await AudioService.instance.init();
-      p.startWorkout(sensorThreshold: settings.sensorThreshold);
-
-      if (!widget.isFreeTraining) {
-        final prog = p.activeProgram;
-        setState(() {
-          _targetReps = TrainingData.getReps(prog.unitId, prog.difficulty);
-        });
-      }
+      context.read<WorkoutProvider>().startWorkout(
+            sensorThreshold: settings.sensorThreshold,
+          );
     });
   }
 
