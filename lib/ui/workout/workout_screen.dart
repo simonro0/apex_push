@@ -195,14 +195,33 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
+  Future<void> _handleBackPress(WorkoutProvider provider) async {
+    final ok = await _showAbortSessionDialog(context);
+    if (ok != true || !mounted) return;
+    if (_inRest) {
+      // Rest phase: set split was already recorded when rest started; just finish.
+      _restTimer?.cancel();
+      setState(() => _inRest = false);
+      await _finish(provider);
+    } else {
+      await _abort(provider);
+    }
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<WorkoutProvider>();
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: widget.isFreeTraining
-          ? _buildFreeTraining(provider)
-          : _buildStructured(provider),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, r) => _handleBackPress(provider),
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: widget.isFreeTraining
+            ? _buildFreeTraining(provider)
+            : _buildStructured(provider),
+      ),
     );
   }
 
