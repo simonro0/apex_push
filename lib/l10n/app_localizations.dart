@@ -124,6 +124,8 @@ class AppLocalizations {
       'sensitivity_high': 'Hoch',
       'sensitivity_medium': 'Mittel',
       'sensitivity_low': 'Niedrig',
+      // ── Sensor / session stats ────────────────────────────────────────────
+      'sensor_verified': 'Verifiziert',
       // ── Burnout set ───────────────────────────────────────────────────────
       'burnout':      'BURNOUT',
       'burnout_chip': 'max',
@@ -259,6 +261,8 @@ class AppLocalizations {
       'sensitivity_high': 'High',
       'sensitivity_medium': 'Medium',
       'sensitivity_low': 'Low',
+      // ── Sensor / session stats ────────────────────────────────────────────
+      'sensor_verified': 'Verified',
       // ── Burnout set ───────────────────────────────────────────────────────
       'burnout':      'BURNOUT',
       'burnout_chip': 'max',

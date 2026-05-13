@@ -9,12 +9,14 @@ class SessionDetailScreen extends StatelessWidget {
   final Workout   workout;
   final List<int> splits;
   final List<int> targetReps;
+  final int?      verifiedReps;
 
   const SessionDetailScreen({
     super.key,
     required this.workout,
-    this.splits     = const [],
-    this.targetReps = const [],
+    this.splits       = const [],
+    this.targetReps   = const [],
+    this.verifiedReps,
   });
 
   @override
@@ -34,14 +36,15 @@ class SessionDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           _SummaryCard(
-            dateStr:   AppLocalizations.formatDate(workout.date, locale),
-            level:     levelStr,
-            totalReps: workout.count,
-            duration:  context.tp('min_sec', {
+            dateStr:      AppLocalizations.formatDate(workout.date, locale),
+            level:        levelStr,
+            totalReps:    workout.count,
+            duration:     context.tp('min_sec', {
               'min': '$mins',
               'sec': secs.toString().padLeft(2, '0'),
             }),
-            calories:  context.tp('kcal_approx', {'n': '$calories'}),
+            calories:     context.tp('kcal_approx', {'n': '$calories'}),
+            verifiedReps: verifiedReps,
           ),
           if (splits.isNotEmpty) ...[
             const SizedBox(height: 20),
@@ -93,6 +96,7 @@ class _SummaryCard extends StatelessWidget {
   final int    totalReps;
   final String duration;
   final String calories;
+  final int?   verifiedReps;
 
   const _SummaryCard({
     required this.dateStr,
@@ -100,6 +104,7 @@ class _SummaryCard extends StatelessWidget {
     required this.totalReps,
     required this.duration,
     required this.calories,
+    this.verifiedReps,
   });
 
   @override
@@ -115,6 +120,12 @@ class _SummaryCard extends StatelessWidget {
             _Row(icon: Icons.repeat,                label: context.t('total_label'),    value: '$totalReps ${context.t('reps_unit')}'),
             _Row(icon: Icons.timer_outlined,        label: context.t('duration_label'), value: duration),
             _Row(icon: Icons.local_fire_department, label: context.t('calories_label'), value: calories),
+            if (verifiedReps != null)
+              _Row(
+                icon:  Icons.sensors,
+                label: context.t('sensor_verified'),
+                value: '$verifiedReps / $totalReps',
+              ),
           ],
         ),
       ),

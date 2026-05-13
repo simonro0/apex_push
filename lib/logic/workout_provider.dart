@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/database_helper.dart';
 import '../data/puud_import_service.dart';
 import '../data/sensor_service.dart';
+import '../models/rep_detail.dart';
 import '../models/training_data.dart';
 import '../models/workout.dart';
 
@@ -16,6 +17,10 @@ class WorkoutProvider with ChangeNotifier {
   int _currentSessionCount = 0;
   DateTime? _startTime;
   bool _lastRepVerified = false;
+  int  _verifiedRepsCount = 0;
+
+  /// Per-rep sensor data collected during the current session.
+  List<RepDetail> _repBuffer = [];
 
   /// Rep counts for each completed set in the current session.
   List<int> _sessionSplits = [];
@@ -30,6 +35,9 @@ class WorkoutProvider with ChangeNotifier {
 
   /// Immutable view of per-set rep counts recorded this session.
   List<int> get sessionSplits => List.unmodifiable(_sessionSplits);
+
+  /// Number of sensor-verified reps in the last completed session.
+  int get lastVerifiedReps => _verifiedRepsCount;
 
   /// Pre-computed stats derived from history.
   int get bestDayCount {
@@ -99,6 +107,8 @@ class WorkoutProvider with ChangeNotifier {
     _sensors             = SensorService(impactThreshold: sensorThreshold);
     _currentSessionCount = 0;
     _lastRepVerified     = false;
+    _verifiedRepsCount   = 0;
+    _repBuffer           = [];
     _sessionSplits       = [];
     _startTime           = DateTime.now();
     _sensors.init();
@@ -106,7 +116,18 @@ class WorkoutProvider with ChangeNotifier {
   }
 
   void incrementCount() {
-    _lastRepVerified = _sensors.verifyPushUp();
+    final result = _sensors.verifyPushUp();
+    _lastRepVerified = result.verified;
+    if (result.verified) _verifiedRepsCount++;
+    _repBuffer.add(RepDetail(
+      workoutId:   0, // filled in by saveWorkout after DB insert
+      repIndex:    _currentSessionCount,
+      timestampMs: _startTime != null
+          ? DateTime.now().difference(_startTime!).inMilliseconds
+          : 0,
+      peakG:   result.peakG,
+      isNear:  result.isNear,
+    ));
     _currentSessionCount++;
     notifyListeners();
   }
@@ -135,7 +156,8 @@ class WorkoutProvider with ChangeNotifier {
       difficulty:      isFreeTraining ? null : _activeProgram.difficulty,
     );
 
-    await DatabaseHelper.instance.createWorkout(workout);
+    final workoutId = await DatabaseHelper.instance.createWorkout(workout);
+    await DatabaseHelper.instance.insertRepDetails(workoutId, _repBuffer);
     await loadHistoryFromDb();
     return workout;
   }

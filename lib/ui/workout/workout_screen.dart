@@ -154,7 +154,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final targetRepsCopy = List<int>.from(_targetReps);
     final splitsCopy     = List<int>.from(provider.sessionSplits);
 
-    final workout = await provider.saveWorkout(isFreeTraining: isFree);
+    final verifiedReps = provider.lastVerifiedReps;
+    final workout      = await provider.saveWorkout(isFreeTraining: isFree);
     if (!mounted) return;
 
     // ── Show session detail ──────────────────────────────────────────────────
@@ -162,9 +163,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => SessionDetailScreen(
-          workout:    workout,
-          splits:     splitsCopy,
-          targetReps: targetRepsCopy,
+          workout:      workout,
+          splits:       splitsCopy,
+          targetReps:   targetRepsCopy,
+          verifiedReps: verifiedReps,
         ),
       ),
     );

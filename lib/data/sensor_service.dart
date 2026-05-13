@@ -26,10 +26,11 @@ class SensorService {
     });
   }
 
-  bool verifyPushUp() {
-    final isValid = _isNear && _maxGInWindow > impactThreshold;
+  ({bool verified, double peakG, bool isNear}) verifyPushUp() {
+    final peak = _maxGInWindow;
+    final near = _isNear;
     _maxGInWindow = 0.0;
-    return isValid;
+    return (verified: near && peak > impactThreshold, peakG: peak, isNear: near);
   }
 
   void dispose() {

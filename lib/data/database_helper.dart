@@ -1,6 +1,7 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../models/rep_detail.dart';
 import '../models/workout.dart';
 
 class DatabaseHelper {
@@ -18,7 +19,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), filePath);
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -39,6 +40,17 @@ class DatabaseHelper {
         difficulty    TEXT
       )
     ''');
+    await db.execute('''
+      CREATE TABLE rep_details (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        workout_id   INTEGER NOT NULL,
+        rep_index    INTEGER NOT NULL,
+        timestamp_ms INTEGER NOT NULL,
+        peak_g       REAL    NOT NULL,
+        is_near      INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (workout_id) REFERENCES workouts(id)
+      )
+    ''');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -48,6 +60,19 @@ class DatabaseHelper {
       );
       await db.execute('ALTER TABLE workouts ADD COLUMN levelId TEXT');
       await db.execute('ALTER TABLE workouts ADD COLUMN difficulty TEXT');
+    }
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS rep_details (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          workout_id   INTEGER NOT NULL,
+          rep_index    INTEGER NOT NULL,
+          timestamp_ms INTEGER NOT NULL,
+          peak_g       REAL    NOT NULL,
+          is_near      INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (workout_id) REFERENCES workouts(id)
+        )
+      ''');
     }
   }
 
@@ -79,6 +104,33 @@ class DatabaseHelper {
   Future<void> deleteAllWorkouts() async {
     final db = await instance.database;
     await db.delete('workouts');
+  }
+
+  Future<void> insertRepDetails(int workoutId, List<RepDetail> details) async {
+    if (details.isEmpty) return;
+    final db = await instance.database;
+    final batch = db.batch();
+    for (final d in details) {
+      batch.insert('rep_details', {
+        'workout_id':   workoutId,
+        'rep_index':    d.repIndex,
+        'timestamp_ms': d.timestampMs,
+        'peak_g':       d.peakG,
+        'is_near':      d.isNear ? 1 : 0,
+      });
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<List<RepDetail>> getRepDetailsForWorkout(int workoutId) async {
+    final db = await instance.database;
+    final rows = await db.query(
+      'rep_details',
+      where:     'workout_id = ?',
+      whereArgs: [workoutId],
+      orderBy:   'rep_index ASC',
+    );
+    return rows.map(RepDetail.fromMap).toList();
   }
 
   Future<void> close() async => (await instance.database).close();
