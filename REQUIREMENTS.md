@@ -27,75 +27,112 @@
 Das Stufensystem ist identisch zur Original-App übernommen:
 
 - **8 Hauptlevel** (1–8), jedes mit **3 Wochen** (1–3)
-- Jede Woche hat **3 Schwierigkeitsvarianten**: Easy / Normal / Hard
+- Jede Einheit hat **3 Schwierigkeitsvarianten**: Easy / Normal / Hard
 - Jede Variante besteht aus **5 Sätzen** (Wiederholungszahlen)
-- Der 5. Satz ist in höheren Levels i.d.R. der Burnout-Satz (möglichst viele)
+- Ab Level 5 ist Satz 5 in Einheiten X-2 und X-3 ein Burnout-Satz (möglichst viele)
 
-Gesamtanzahl Einheiten: **8 × 3 × 3 = 72 Programme**
+Einheiten werden nach dem Schema des Originals benannt: `L-E` (Level-Einheit), z.B. `7-1`, `7-2`, `7-3`, `8-1` …
 
-### 1.2 Vollständige Satzmatrix
+Gesamtanzahl hartcodierter Einheiten: **8 × 3 × 3 = 72 Programme**  
+Darüber hinaus: generativ erweiterbar (§1.5).
 
-*(Werte aus Screenshots: Satz1-Satz2-Satz3-Satz4-Satz5)*
+### 1.2 Vollständige Satzmatrix (Level 1–8)
+
+*(Werte aus Original-App-Screenshots: Satz1-Satz2-Satz3-Satz4-Satz5)*
 
 #### Level 1
-| Einheit    | Easy        | Normal      | Hard          |
-|------------|-------------|-------------|---------------|
-| Week 1     | 2-2-2-2-3   | 6-6-5-4-5   | 9-9-8-6-7     |
-| Week 2     | 4-3-2-2-4   | 8-8-6-5-7   | 11-11-9-9-10  |
-| Week 3     | 5-4-4-3-5   | 9-8-8-5-9   | 14-12-10-10-14|
+| Einheit | Easy        | Normal      | Hard           |
+|---------|-------------|-------------|----------------|
+| 1-1     | 2-2-2-2-3   | 6-6-5-4-5   | 9-9-8-6-7      |
+| 1-2     | 4-3-2-2-4   | 8-8-6-5-7   | 11-11-9-9-10   |
+| 1-3     | 5-4-4-3-5   | 9-8-8-5-9   | 14-12-10-10-14 |
 
 #### Level 2
-| Einheit    | Easy        | Normal      | Hard          |
-|------------|-------------|-------------|---------------|
-| Week 1     | 4-5-4-4-5   | 8-7-5-4-6   | 11-11-8-6-9   |
-| Week 2     | 6-5-3-4-6   | 10-8-6-7-9  | 12-12-10-10-12|
-| Week 3     | 5-6-4-5-6   | 9-9-7-7-9   | 14-14-11-11-10|
+| Einheit | Easy        | Normal      | Hard           |
+|---------|-------------|-------------|----------------|
+| 2-1     | 4-5-4-4-5   | 8-7-5-4-6   | 11-11-8-6-9    |
+| 2-2     | 6-5-3-4-6   | 10-8-6-7-9  | 12-12-10-10-12 |
+| 2-3     | 5-6-4-5-6   | 9-9-7-7-9   | 14-14-11-11-10 |
 
 #### Level 3
-| Einheit    | Easy          | Normal        | Hard          |
-|------------|---------------|---------------|---------------|
-| Week 1     | 9-8-10-8-10   | 14-10-9-11-8  | 16-14-12-11-13|
-| Week 2     | 13-10-11-11-10| 15-15-13-13-10| 18-15-14-13-17|
-| Week 3     | 15-11-14-10-11| 20-14-14-12-18| 21-15-16-14-20|
+| Einheit | Easy           | Normal         | Hard           |
+|---------|----------------|----------------|----------------|
+| 3-1     | 9-8-10-8-10    | 14-10-9-11-8   | 16-14-12-11-13 |
+| 3-2     | 13-10-11-11-10 | 15-15-13-13-10 | 18-15-14-13-17 |
+| 3-3     | 15-11-14-10-11 | 20-14-14-12-18 | 21-15-16-14-20 |
 
 #### Level 4
-| Einheit    | Easy          | Normal        | Hard          |
-|------------|---------------|---------------|---------------|
-| Week 1     | 14-11-11-9-13 | 14-12-14-12-15| 20-16-18-15-22|
-| Week 2     | 14-12-12-10-13| 20-12-14-13-16| 22-18-17-16-23|
-| Week 3     | 18-11-13-12-13| 20-17-14-15-19| 25-19-18-18-24|
+| Einheit | Easy           | Normal         | Hard           |
+|---------|----------------|----------------|----------------|
+| 4-1     | 14-11-11-9-13  | 14-12-14-12-15 | 20-16-18-15-22 |
+| 4-2     | 14-12-12-10-13 | 20-12-14-13-16 | 22-18-17-16-23 |
+| 4-3     | 18-11-13-12-13 | 20-17-14-15-19 | 25-19-18-18-24 |
 
 #### Level 5
-| Einheit    | Easy          | Normal        | Hard          |
-|------------|---------------|---------------|---------------|
-| Week 1     | 21-18-14-13-19| 22-21-16-20-22| 26-22-18-21-25|
-| Week 2     | 18-11-13-12-13| 13-12-10-8-28 | 15-14-12-10-32|
-| Week 3     | 14-11-11-9-13 | 10-10-8-7-28  | 14-12-10-8-33 |
+| Einheit | Easy           | Normal         | Hard           |
+|---------|----------------|----------------|----------------|
+| 5-1     | 21-18-14-13-19 | 22-21-16-20-22 | 26-22-18-21-25 |
+| 5-2     | 18-11-13-12-13 | 13-12-10-8-28  | 15-14-12-10-32 |
+| 5-3     | 14-11-11-9-13  | 10-10-8-7-28   | 14-12-10-8-33  |
 
 #### Level 6
-| Einheit    | Easy          | Normal        | Hard          |
-|------------|---------------|---------------|---------------|
-| Week 1     | 25-21-20-18-25| 29-25-21-20-30| 34-26-24-21-32|
-| Week 2     | 13-12-10-8-28 | 15-14-12-10-33| 16-14-11-10-36|
-| Week 3     | 10-10-8-7-28  | 14-12-10-8-33 | 14-12-10-8-36 |
+| Einheit | Easy           | Normal         | Hard           |
+|---------|----------------|----------------|----------------|
+| 6-1     | 25-21-20-18-25 | 29-25-21-20-30 | 34-26-24-21-32 |
+| 6-2     | 13-12-10-8-28  | 15-14-12-10-33 | 16-14-11-10-36 |
+| 6-3     | 10-10-8-7-28   | 14-12-10-8-33  | 14-12-10-8-36  |
 
 #### Level 7
-| Einheit    | Easy          | Normal        | Hard          |
-|------------|---------------|---------------|---------------|
-| Week 1     | 30-21-26-18-25| 34-25-21-25-35| 41-26-33-25-35|
-| Week 2     | 25-14-10-8-23 | 13-14-11-10-33| 20-18-11-10-28|
-| Week 3     | 19-12-10-8-28 | 14-12-10-8-30 | 14-12-10-18-36|
+| Einheit | Easy           | Normal         | Hard           |
+|---------|----------------|----------------|----------------|
+| 7-1     | 30-21-26-18-25 | 34-25-21-25-35 | 41-26-33-25-35 |
+| 7-2     | 25-14-10-8-23  | 13-14-11-10-33 | 20-18-11-10-28 |
+| 7-3     | 19-12-10-8-28  | 14-12-10-8-30  | 14-12-10-18-36 |
 
 #### Level 8
-| Einheit    | Easy          | Normal        | Hard          |
-|------------|---------------|---------------|---------------|
-| Week 1     | 36-28-25-24-33| 46-36-32-34-46| 52-41-38-36-52|
-| Week 2     | 18-16-13-11-38| 21-18-18-14-46| 26-21-21-18-52|
-| Week 3     | 24-21-19-18-46| 27-24-24-20-54| 31-27-27-24-60|
+| Einheit | Easy           | Normal         | Hard           |
+|---------|----------------|----------------|----------------|
+| 8-1     | 36-28-25-24-33 | 46-36-32-34-46 | 52-41-38-36-52 |
+| 8-2     | 18-16-13-11-38 | 21-18-18-14-46 | 26-21-21-18-52 |
+| 8-3     | 24-21-19-18-46 | 27-24-24-20-54 | 31-27-27-24-60 |
 
-> **Hinweis:** Simon ist aktuell auf **Level 8-3 (Easy)** (markierter Eintrag in den Screenshots).
+### 1.3 Generative Erweiterung ab Level 9
 
-### 1.3 Ruhezeiten zwischen Sätzen
+Die Datenwerte wurden in der Original-App handgepflegt, folgen aber zwei erkennbaren strukturellen Typen:
+
+**Typ A – „Distributed"** (alle X-1-Einheiten, X-2/X-3 bis Level 4)  
+Wiederholungen gleichmäßig auf 5 Sätze verteilt, Satz 1 und 5 leicht erhöht.
+
+**Typ B – „Burnout"** (X-2/X-3 ab Level 5, Normal/Hard)  
+Sätze 1–4 moderat (8–21 Reps), Satz 5 als Burnout-Satz mit deutlich mehr Wiederholungen.
+
+**Extrapolationsformeln für Level N ≥ 9:**
+
+*Gesamtvolumen X-1 (Normal):*
+```
+total = round(23.6 × N − 14)
+Satz 1 ≈ total × 0.24
+Satz 2 ≈ total × 0.19
+Satz 3 ≈ total × 0.17
+Satz 4 ≈ total × 0.18
+Satz 5 ≈ total × 0.24   (→ round)
+```
+
+*Burnout-Satz X-2/X-3 (Normal):*
+```
+Satz 5 = round(28 + (N − 5) × 6.5)
+Sätze 1–4: ~[15, 13, 11, 9] + 1 pro Level-Stufe ab Level 6
+```
+
+*Schwierigkeitsskalierung (stabil ab Level 4):*
+```
+Normal = Easy × 1.21
+Hard   = Easy × 1.43
+```
+
+**Besonderheit Level 8:** Stellt einen bewussten Schwierigkeitssprung dar (~2–3× normale Steigerung gegenüber Level 7). Zukünftige Meilenstein-Level (z.B. 12, 16 …) können analog als Intensitätsspitzen modelliert werden.
+
+### 1.5 Ruhezeiten zwischen Sätzen
 
 Die Ruhezeit richtet sich nach der **Schwierigkeitsvariante** des gewählten Programms – nicht nach dem Level:
 
@@ -107,7 +144,7 @@ Die Ruhezeit richtet sich nach der **Schwierigkeitsvariante** des gewählten Pro
 
 Die Ruhezeit gilt einheitlich zwischen allen Sätzen einer Session. Der Nutzer kann die Pause im Einstellungsscreen überschreiben (§8.2).
 
-### 1.4 Einstieg & Level-Empfehlung
+### 1.6 Einstieg & Level-Empfehlung
 
 Zwei Wege zum Einstieg:
 
@@ -444,12 +481,31 @@ Eigener Screen nach Original-App-Struktur (Options-Screenshot):
 | 12 | Benachrichtigungen (Schedule) | **NIEDRIG** | – |
 | 13 | Einstellungsscreen mit Backup/Restore | **MITTEL** | #1 |
 | 14 | CSV-Import/-Export (robuster) | **MITTEL** | – |
+| 15 | Generative Level 9+ Berechnung | **NIEDRIG** | #2 |
 
 ---
 
-## 10. Offene Fragen
+## 10. Zukünftige Integrationen (Ausblick)
 
-Alle bisherigen Fragen sind geklärt. Folgende Punkte bleiben für spätere Iterationen offen:
+### 10.1 Strava-Integration
+
+Für eine spätere Version ist eine Anbindung an **Strava** vorgesehen.
+
+Mögliche Umsetzung:
+- Nach einem Training: Button „An Strava exportieren"
+- Übertragung als **Manual Activity** via [Strava API](https://developers.strava.com/) (`POST /activities`)
+- Felder: Name, Typ (`WeightTraining`), Startzeit, Dauer, Beschreibung (Sätze + Reps)
+- OAuth2-Flow für Authentifizierung
+
+Voraussetzungen: Strava-API-Key (App-Registrierung), `flutter_appauth`-Package für OAuth2.
+
+> Kein Handlungsbedarf jetzt – Architektur sollte aber so gestaltet werden, dass ein `WorkoutExporter`-Interface erweiterbar ist (CSV heute, Strava später).
+
+---
+
+## 11. Verbleibende offene Punkte
+
+Alle inhaltlichen Fragen sind geklärt. Folgende Punkte bleiben für spätere Iterationen offen:
 
 1. **Kalorie-Erweiterung**: Wenn die Formel später auf Körpergewicht + Bewegungsgeschwindigkeit ausgedehnt werden soll, ist ein Settings-Feld „Körpergewicht (kg)" und die Integration der `accel_stddev`-Daten aus `rep_details` der Weg. Kein Handlungsbedarf jetzt.
 
