@@ -29,7 +29,7 @@
 Das Kernkonzept:
 
 - Der Nutzer tippt während der Übung mit Nase oder Brust auf das Display, um jede Wiederholung zu zählen.
-- Sensoren (Näherungssensor + Beschleunigungsmesser) verifizieren, ob die Bewegung „echt" war (Anti-Cheat).
+- Sensoren (Näherungssensor + Beschleunigungsmesser) verifizieren, ob die Bewegung "echt" war (Anti-Cheat).
 - Nach jeder Session bewertet der Nutzer die Schwierigkeit (zu leicht / genau richtig / zu schwer).
 - Die App passt das Tagesziel automatisch an.
 - Historische Daten werden lokal per SQLite gespeichert und können als CSV exportiert/importiert werden.
@@ -93,23 +93,23 @@ Die App folgt einem einfachen Schichtenmodell:
 
 **`Workout`** (`lib/models/workout.dart`)
 
-| Feld             | Typ      | Beschreibung                              |
-|------------------|----------|-------------------------------------------|
-| `id`             | `int?`   | Datenbankprimärschlüssel                  |
-| `date`           | `DateTime` | Zeitstempel der Session                 |
-| `count`          | `int`    | Anzahl gezählter Wiederholungen           |
-| `durationSeconds`| `int`    | Dauer der Session in Sekunden             |
-| `avgRpm`         | `double` | Wiederholungen pro Minute                 |
-| `isImported`     | `bool`   | Kennzeichnung als CSV-Import              |
-| `isVerified`     | `bool`   | Mindestens eine Wdh. sensorverifiziert    |
+| Feld              | Typ        | Beschreibung                           |
+|-------------------|------------|----------------------------------------|
+| `id`              | `int?`     | Datenbankprimärschlüssel               |
+| `date`            | `DateTime` | Zeitstempel der Session                |
+| `count`           | `int`      | Anzahl gezählter Wiederholungen        |
+| `durationSeconds` | `int`      | Dauer der Session in Sekunden          |
+| `avgRpm`          | `double`   | Wiederholungen pro Minute              |
+| `isImported`      | `bool`     | Kennzeichnung als CSV-Import           |
+| `isVerified`      | `bool`     | Mindestens eine Wdh. sensorverifiziert |
 
 Methoden: `toMap()` (DB-Serialisierung), `fromCsv()` (Factory-Konstruktor).
 
 **`TrainingPlan`** (`lib/models/workout.dart`)
 
-| Feld                   | Typ      | Beschreibung                        |
-|------------------------|----------|-------------------------------------|
-| `dailyTarget`          | `int`    | Tagesziel (Wiederholungen)          |
+| Feld                   | Typ      | Beschreibung                         |
+|------------------------|----------|--------------------------------------|
+| `dailyTarget`          | `int`    | Tagesziel (Wiederholungen)           |
 | `difficultyMultiplier` | `double` | **Definiert, aber nirgends genutzt** |
 
 ---
@@ -163,13 +163,13 @@ Ergebnis wird auf `int` gerundet.
 
 Zentraler ChangeNotifier. Hält:
 
-| Zustand               | Typ            | Beschreibung                         |
-|-----------------------|----------------|--------------------------------------|
-| `_currentSessionCount`| `int`          | Zähler der aktuellen Session         |
-| `_startTime`          | `DateTime?`    | Startzeitpunkt                       |
-| `_lastRepVerified`    | `bool`         | Sensor-Ergebnis der letzten Wdh.     |
-| `_history`            | `List<Workout>`| Geladene Workout-Historie            |
-| `_currentPlan`        | `TrainingPlan` | Aktives Tagesziel                    |
+| Zustand                | Typ             | Beschreibung                     |
+|------------------------|-----------------|----------------------------------|
+| `_currentSessionCount` | `int`           | Zähler der aktuellen Session     |
+| `_startTime`           | `DateTime?`     | Startzeitpunkt                   |
+| `_lastRepVerified`     | `bool`          | Sensor-Ergebnis der letzten Wdh. |
+| `_history`             | `List<Workout>` | Geladene Workout-Historie        |
+| `_currentPlan`         | `TrainingPlan`  | Aktives Tagesziel                |
 
 Schlüsselmethoden:
 
@@ -194,15 +194,15 @@ Schlüsselmethoden:
 - Zeigt das aktuelle Tagesziel (48 pt, prominent)
 - `ListView` der bisherigen Workouts via `WorkoutStatCard`
 - Icons für CSV-Export (Upload) und CSV-Import (Download)
-- FAB „START TRAINING" → navigiert zu `WorkoutScreen`
+- FAB "START TRAINING" → navigiert zu `WorkoutScreen`
 - Lädt Verlauf und Plan in `initState` via `addPostFrameCallback`
 
 **`WorkoutScreen`** (`lib/ui/workout/workout_screen.dart`)
 
 - Schwarzer Vollbild-Hintergrund
 - Riesiger Zähler (180 pt) – Tap zählt Wiederholung
-- Hinweis: „TAP WITH NOSE / CHEST"
-- „FINISH SESSION"-Button → Feedback-Dialog
+- Hinweis: "TAP WITH NOSE / CHEST"
+- "FINISH SESSION"-Button → Feedback-Dialog
 - Post-Workout-Flow:
   1. Workout speichern
   2. Schwierigkeitsfeedback einholen (Tough / Perfect / Easy)
@@ -257,17 +257,17 @@ DashboardScreen
 
 ## 6. Abhängigkeiten
 
-| Paket             | Version  | Verwendung                        |
-|-------------------|----------|-----------------------------------|
-| `provider`        | ^6.0.0   | State-Management                  |
-| `sqflite`         | aktuell  | Lokale SQLite-Datenbank           |
-| `shared_preferences` | aktuell | Tagesziel persistieren          |
-| `sensors_plus`    | aktuell  | Beschleunigungsmesser             |
-| `proximity_sensor`| aktuell  | Näherungssensor                   |
-| `csv`             | aktuell  | CSV-Parsing                       |
-| `file_picker`     | aktuell  | Dateiauswahl für Import           |
-| `path_provider`   | aktuell  | Temp-Verzeichnis für Export       |
-| `share_plus`      | aktuell  | System-Share-Dialog               |
+| Paket                | Version | Verwendung                  |
+|----------------------|---------|-----------------------------|
+| `provider`           | ^6.0.0  | State-Management            |
+| `sqflite`            | aktuell | Lokale SQLite-Datenbank     |
+| `shared_preferences` | aktuell | Tagesziel persistieren      |
+| `sensors_plus`       | aktuell | Beschleunigungsmesser       |
+| `proximity_sensor`   | aktuell | Näherungssensor             |
+| `csv`                | aktuell | CSV-Parsing                 |
+| `file_picker`        | aktuell | Dateiauswahl für Import     |
+| `path_provider`      | aktuell | Temp-Verzeichnis für Export |
+| `share_plus`         | aktuell | System-Share-Dialog         |
 
 ---
 
@@ -275,31 +275,31 @@ DashboardScreen
 
 ### Kritisch
 
-| # | Problem | Datei | Beschreibung |
-|---|---------|-------|--------------|
+| #  | Problem                      | Datei                   | Beschreibung                                                                                      |
+|----|------------------------------|-------------------------|---------------------------------------------------------------------------------------------------|
 | K1 | `_startTime` ohne Null-Check | `workout_provider.dart` | `saveWorkout()` greift auf `_startTime` zu, ohne vorher auf `null` zu prüfen → potentieller Crash |
-| K2 | Sensor-Dispose fehlt | `workout_provider.dart` | `SensorService.dispose()` wird im Provider-`dispose()` nicht aufgerufen → Memory Leak |
-| K3 | Kein Datenbankmigrationsplan | `database_helper.dart` | Schema-Version 1, keine `onUpgrade`-Logik |
+| K2 | Sensor-Dispose fehlt         | `workout_provider.dart` | `SensorService.dispose()` wird im Provider-`dispose()` nicht aufgerufen → Memory Leak             |
+| K3 | Kein Datenbankmigrationsplan | `database_helper.dart`  | Schema-Version 1, keine `onUpgrade`-Logik                                                         |
 
 ### Bedeutend
 
-| # | Problem | Datei | Beschreibung |
-|---|---------|-------|--------------|
-| B1 | Toter Code | `adjust_dialog.dart` | Datei existiert, wird aber nirgends importiert oder genutzt |
-| B2 | Ungenutzte Modelfelder | `workout.dart` | `TrainingPlan.difficultyMultiplier` definiert aber nie verwendet |
-| B3 | Placeholder-Tests | `widget_test.dart` | Test erwartet einen Zähler-Widget, der in der App nicht existiert |
-| B4 | Hardcodierter Sensor-Schwellenwert | `sensor_service.dart` | 12,0 m/s² ist nicht kalibrierbar; unterschiedliche Geräte liefern unterschiedliche Werte |
-| B5 | Keine Fehlerbehandlung bei CSV-Import | `csv_service.dart` | Ungültige Dateiformate führen zu stillen Fehlern oder Abstürzen |
-| B6 | Kein Paginierung der Historie | `database_helper.dart` | Alle Workouts werden bei jedem App-Start geladen |
+| #  | Problem                               | Datei                  | Beschreibung                                                                             |
+|----|---------------------------------------|------------------------|------------------------------------------------------------------------------------------|
+| B1 | Toter Code                            | `adjust_dialog.dart`   | Datei existiert, wird aber nirgends importiert oder genutzt                              |
+| B2 | Ungenutzte Modelfelder                | `workout.dart`         | `TrainingPlan.difficultyMultiplier` definiert aber nie verwendet                         |
+| B3 | Placeholder-Tests                     | `widget_test.dart`     | Test erwartet einen Zähler-Widget, der in der App nicht existiert                        |
+| B4 | Hardcodierter Sensor-Schwellenwert    | `sensor_service.dart`  | 12,0 m/s² ist nicht kalibrierbar; unterschiedliche Geräte liefern unterschiedliche Werte |
+| B5 | Keine Fehlerbehandlung bei CSV-Import | `csv_service.dart`     | Ungültige Dateiformate führen zu stillen Fehlern oder Abstürzen                          |
+| B6 | Kein Paginierung der Historie         | `database_helper.dart` | Alle Workouts werden bei jedem App-Start geladen                                         |
 
 ### Minor
 
-| # | Problem | Datei | Beschreibung |
-|---|---------|-------|--------------|
-| M1 | Englischsprachige UI | diverse | Alle UI-Texte auf Englisch, keine i18n-Vorbereitung |
-| M2 | `_lastRepVerified` initial `true` | `workout_provider.dart` | Sollte `false` oder `null` sein für korrekte Semantik |
-| M3 | Kein DB-Index auf `date` | `database_helper.dart` | Queries nach Datum sind langsam bei großen Datenmengen |
-| M4 | README veraltet | `README.md` | Standard-Flutter-README, kein App-spezifischer Inhalt |
+| #  | Problem                           | Datei                   | Beschreibung                                           |
+|----|-----------------------------------|-------------------------|--------------------------------------------------------|
+| M1 | Englischsprachige UI              | diverse                 | Alle UI-Texte auf Englisch, keine i18n-Vorbereitung    |
+| M2 | `_lastRepVerified` initial `true` | `workout_provider.dart` | Sollte `false` oder `null` sein für korrekte Semantik  |
+| M3 | Kein DB-Index auf `date`          | `database_helper.dart`  | Queries nach Datum sind langsam bei großen Datenmengen |
+| M4 | README veraltet                   | `README.md`             | Standard-Flutter-README, kein App-spezifischer Inhalt  |
 
 ---
 
@@ -307,12 +307,12 @@ DashboardScreen
 
 Folgende Konzepte sind im Code angedeutet, aber nicht fertig implementiert:
 
-| Konzept | Stand | Hinweis |
-|---------|-------|---------|
-| `difficultyMultiplier` | Definiert, nicht genutzt | Gedacht für gewichteten Progressionsalgorithmus |
-| Sensor-Kalibrierung | Kein UI vorhanden | Schwellenwert hardcoded |
-| Mehrere Trainingspläne | Nur ein Plan möglich | `TrainingPlan` ohne Namensgebung oder Liste |
-| Pausieren einer Session | Nicht implementiert | Kein Pause-Button im WorkoutScreen |
-| Statistiken/Diagramme | Nicht vorhanden | Dashboard zeigt nur Rohliste |
-| Benachrichtigungen | Nicht vorhanden | Keine tägliche Erinnerung |
-| Authentifizierung | Nicht vorhanden | Rein lokal, kein Account |
+| Konzept                 | Stand                    | Hinweis                                         |
+|-------------------------|--------------------------|-------------------------------------------------|
+| `difficultyMultiplier`  | Definiert, nicht genutzt | Gedacht für gewichteten Progressionsalgorithmus |
+| Sensor-Kalibrierung     | Kein UI vorhanden        | Schwellenwert hardcoded                         |
+| Mehrere Trainingspläne  | Nur ein Plan möglich     | `TrainingPlan` ohne Namensgebung oder Liste     |
+| Pausieren einer Session | Nicht implementiert      | Kein Pause-Button im WorkoutScreen              |
+| Statistiken/Diagramme   | Nicht vorhanden          | Dashboard zeigt nur Rohliste                    |
+| Benachrichtigungen      | Nicht vorhanden          | Keine tägliche Erinnerung                       |
+| Authentifizierung       | Nicht vorhanden          | Rein lokal, kein Account                        |
