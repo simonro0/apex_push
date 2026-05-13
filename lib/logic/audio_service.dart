@@ -3,44 +3,73 @@ import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 
-/// Singleton that generates tones in memory and plays them via audioplayers.
-/// No audio asset files required — all sounds are synthesised at runtime.
+/// Singleton audio service.
+///
+/// All players are pre-loaded once in [init] so that every play call
+/// only does seek(0) + resume() — no pipeline re-initialisation, minimal
+/// latency. Volume changes are pushed to every player immediately.
 class AudioService {
   AudioService._();
   static final AudioService instance = AudioService._();
 
   bool   _initialized = false;
-  double volume       = 1.0;
+  double _volume      = 1.0;
 
-  late final Uint8List _repBytes;
-  late final Uint8List _countdownBytes;
-  late final Uint8List _restEndBytes;
-  late final Uint8List _targetBytes;
+  double get volume => _volume;
+  set volume(double v) {
+    _volume = v;
+    if (!_initialized) return;
+    for (final p in _repPool) {
+      p.setVolume(v);
+    }
+    _countdownPlayer.setVolume(v);
+    _restEndPlayer.setVolume(v);
+    _targetPlayer.setVolume(v);
+  }
 
   // Three players in round-robin so rapid rep ticks can overlap.
   final List<AudioPlayer> _repPool = [];
   int _repIdx = 0;
 
-  // Single player for infrequent event sounds (countdown / rest-end / target).
-  final AudioPlayer _eventPlayer = AudioPlayer();
+  // One pre-loaded player per distinct event sound.
+  late final AudioPlayer _countdownPlayer;
+  late final AudioPlayer _restEndPlayer;
+  late final AudioPlayer _targetPlayer;
 
   // ── Init / dispose ─────────────────────────────────────────────────────────
 
   Future<void> init() async {
     if (_initialized) return;
 
-    _repBytes       = _wav(hz: 880,  ms: 60,  vol: 0.45);
-    _countdownBytes = _wav(hz: 660,  ms: 110, vol: 0.75);
-    _restEndBytes   = _wav(hz: 1100, ms: 300, vol: 0.85);
-    _targetBytes    = _wav(hz: 1320, ms: 200, vol: 0.80);
+    final repBytes       = _wav(hz: 880,  ms: 60,  vol: 0.45);
+    final countdownBytes = _wav(hz: 660,  ms: 110, vol: 0.75);
+    final restEndBytes   = _wav(hz: 1100, ms: 300, vol: 0.85);
+    final targetBytes    = _wav(hz: 1320, ms: 200, vol: 0.80);
 
+    // Pre-load rep pool.
     for (var i = 0; i < 3; i++) {
       final p = AudioPlayer();
       await p.setReleaseMode(ReleaseMode.stop);
+      await p.setSource(BytesSource(repBytes));
+      await p.setVolume(_volume);
       _repPool.add(p);
     }
 
-    await _eventPlayer.setReleaseMode(ReleaseMode.stop);
+    // Pre-load event players.
+    _countdownPlayer = AudioPlayer();
+    await _countdownPlayer.setReleaseMode(ReleaseMode.stop);
+    await _countdownPlayer.setSource(BytesSource(countdownBytes));
+    await _countdownPlayer.setVolume(_volume);
+
+    _restEndPlayer = AudioPlayer();
+    await _restEndPlayer.setReleaseMode(ReleaseMode.stop);
+    await _restEndPlayer.setSource(BytesSource(restEndBytes));
+    await _restEndPlayer.setVolume(_volume);
+
+    _targetPlayer = AudioPlayer();
+    await _targetPlayer.setReleaseMode(ReleaseMode.stop);
+    await _targetPlayer.setSource(BytesSource(targetBytes));
+    await _targetPlayer.setVolume(_volume);
 
     _initialized = true;
   }
@@ -49,7 +78,11 @@ class AudioService {
     for (final p in _repPool) {
       p.dispose();
     }
-    _eventPlayer.dispose();
+    if (_initialized) {
+      _countdownPlayer.dispose();
+      _restEndPlayer.dispose();
+      _targetPlayer.dispose();
+    }
   }
 
   // ── Play API ───────────────────────────────────────────────────────────────
@@ -59,25 +92,29 @@ class AudioService {
     if (!_initialized) return;
     final p = _repPool[_repIdx];
     _repIdx = (_repIdx + 1) % _repPool.length;
-    p.play(BytesSource(_repBytes), volume: volume);
+    p.seek(Duration.zero);
+    p.resume();
   }
 
   /// Played at 3 / 2 / 1 seconds remaining in rest.
   void playCountdown() {
     if (!_initialized) return;
-    _eventPlayer.play(BytesSource(_countdownBytes), volume: volume);
+    _countdownPlayer.seek(Duration.zero);
+    _countdownPlayer.resume();
   }
 
   /// Played when rest ends and the next set begins.
   void playRestEnd() {
     if (!_initialized) return;
-    _eventPlayer.play(BytesSource(_restEndBytes), volume: volume);
+    _restEndPlayer.seek(Duration.zero);
+    _restEndPlayer.resume();
   }
 
   /// Played once when the rep count first reaches the set target.
   void playTargetReached() {
     if (!_initialized) return;
-    _eventPlayer.play(BytesSource(_targetBytes), volume: volume);
+    _targetPlayer.seek(Duration.zero);
+    _targetPlayer.resume();
   }
 
   // ── WAV synthesis ──────────────────────────────────────────────────────────
@@ -96,11 +133,11 @@ class AudioService {
     buf.setUint32(4,  36 + dataSize, Endian.little);
     _str(buf, 8,  'WAVE');
     _str(buf, 12, 'fmt ');
-    buf.setUint32(16, 16,             Endian.little); // chunk size
+    buf.setUint32(16, 16,             Endian.little);
     buf.setUint16(20, 1,              Endian.little); // PCM
     buf.setUint16(22, 1,              Endian.little); // mono
-    buf.setUint32(24, sampleRate,     Endian.little); // sample rate
-    buf.setUint32(28, sampleRate * 2, Endian.little); // byte rate (16-bit mono)
+    buf.setUint32(24, sampleRate,     Endian.little);
+    buf.setUint32(28, sampleRate * 2, Endian.little); // byte rate
     buf.setUint16(32, 2,              Endian.little); // block align
     buf.setUint16(34, 16,             Endian.little); // bits per sample
     _str(buf, 36, 'data');
