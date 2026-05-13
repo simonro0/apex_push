@@ -97,19 +97,38 @@ Gesamtanzahl Einheiten: **8 × 3 × 3 = 72 Programme**
 
 ### 1.3 Ruhezeiten zwischen Sätzen
 
-Die Ruhezeiten sind in den Screenshots nicht sichtbar. Vorgabe: mit realistischen Standardwerten implementieren (z.B. 60s/90s/120s je nach Level-Gruppe). Genaue Werte mit Simon abstimmen.
+Die Ruhezeit richtet sich nach der **Schwierigkeitsvariante** des gewählten Programms – nicht nach dem Level:
 
-*Vorschlag:*
-- Level 1–2: 60 Sekunden
-- Level 3–5: 90 Sekunden
-- Level 6–8: 120 Sekunden
+| Variante | Ruhezeit |
+|----------|----------|
+| Easy     | 30 Sekunden |
+| Normal   | 60 Sekunden |
+| Hard     | 120 Sekunden |
 
-### 1.4 Einstieg
+Die Ruhezeit gilt einheitlich zwischen allen Sätzen einer Session. Der Nutzer kann die Pause im Einstellungsscreen überschreiben (§8.2).
 
-Zwei Wege zum Einstieg in ein Level:
+### 1.4 Einstieg & Level-Empfehlung
+
+Zwei Wege zum Einstieg:
 
 1. **Direkte Auswahl** aus der Levelübersicht (Tabelle wie in Original-App)
-2. **Einschätzungstest** via freier Übungsrunde (Practice): das Ergebnis wird automatisch einem passenden Level zugeordnet
+2. **Einschätzung** via freier Übungsrunde (Practice) → automatische Empfehlung
+
+**Empfehlungslogik nach freier Runde:**
+
+Kriterium: Wähle das Level, bei dem die **maximale Einzelsatz-Wiederholungszahl** nur minimal größer ist als das Ergebnis der freien Runde.
+
+```
+Ergebnis freie Runde = N Wiederholungen
+
+Empfehlung = erstes Level (aufsteigend), bei dem
+             max(Satz 1..5) > N AND max(Satz 1..5) − N ist minimal
+```
+
+Beispiel: Freie Runde = 18 Reps  
+→ Level 4-1 Easy hat max. Satz = 14 (zu klein), Level 4-3 Easy max = 18 (knapp), Level 5-1 Easy max = 21 (minimal größer) → **Empfehlung: Level 5-1 Easy**
+
+Die Empfehlung wird dem Nutzer angezeigt; er kann sie übernehmen oder manuell anpassen.
 
 ---
 
@@ -170,9 +189,25 @@ Layout exakt nach Original-App (Screenshot):
 
 ### 3.2 Abbruch & Fortsetzung
 
-- **Jederzeit abbrechen** möglich → Rückfrage: „Level anpassen?"
-- **Nach letztem Satz: Weitermachen** möglich (Burnout-Bonus-Set)
-- Nach Abschluss oder Abbruch: Rückfrage Levelanpassung
+- **Jederzeit abbrechen** möglich → Session wird mit bisher erreichten Reps gespeichert → Rückfrage Levelanpassung
+- **Nach letztem Satz: Weitermachen** möglich (Burnout-Bonus-Set ohne Zielvorgabe, bis zur Erschöpfung)
+- Nach Abschluss oder Abbruch: immer Rückfrage Levelanpassung (§3.3)
+
+### 3.3 Levelanpassung
+
+**Levelwechsel nur auf expliziten Nutzerwunsch** – kein automatischer Fortschritt.
+
+Auslöser für die Rückfrage:
+1. Nutzer bricht Training ab
+2. Nutzer macht mehr Wiederholungen als das Satzziel (Burnout-Bonus)
+
+Optionen in der Rückfrage:
+
+| Wahl | Aktion |
+|------|--------|
+| Beibehalten | Kein Levelwechsel |
+| Zu leicht | Nächste Stufe (Easy→Normal→Hard→nächste Woche→nächstes Level) |
+| Zu schwer | Vorherige Stufe |
 
 ### 3.3 Post-Training-Flow
 
@@ -222,7 +257,7 @@ Layout nach Original-App (Screenshot):
 - **Diagrammtyp**: kombiniertes Balkendiagramm (Tagessumme als Fläche) + Linienchart (Datenpunkte verbunden)
 - **X-Achse**: Tage des Monats (1–31, nur Trainingstage mit Balken)
 - **Y-Achse**: Anzahl Wiederholungen (automatisch skaliert)
-- **Calorie-Tab**: Kalorienverbrauch je Tag (Berechnungsformel: ~0,5 kcal pro Push-up als Näherung)
+- **Calorie-Tab**: Kalorienverbrauch je Tag – Formel: `reps × 0,5 kcal` (fixe Näherung, bewusst einfach gehalten). Die Architektur lässt eine spätere Erweiterung um Körpergewicht und Bewegungsgeschwindigkeit zu (beide Faktoren werden für eine reelle Berechnung benötigt).
 - **Tap auf Datenpunkt/Balken** → Detailansicht dieser Session
 - **„Home"-Button** unten → zurück zum Dashboard
 
@@ -271,10 +306,20 @@ CREATE TABLE rep_details (
 
 ### 5.3 Analyse-Graph
 
-- X-Achse: Wiederholungsnummer
-- Linie 1: Intervall (ms) zwischen Wiederholungen → zeigt Ermüdung
+Anzeige in **zwei Kontexten**:
+1. **Post-Training-Flow** (direkt nach jeder Session, vor der Monatsübersicht)
+2. **Session-Detailansicht** (historisch abrufbar via Record-Tab)
+
+**Diagramm-Aufbau:**
+- X-Achse: Wiederholungsnummer (über alle Sätze, mit Satz-Trennlinien)
+- Linie 1: Intervall (ms) zwischen Wiederholungen → zeigt Tempoabfall / Ermüdung
 - Linie 2: Peak-Beschleunigungsamplitude → zeigt Bewegungstiefe
-- Optionale Warnung bei deutlichem Qualitätsabfall
+
+**Fester Hinweistext** (immer unter dem Graphen):
+> „Gleichmäßige, kontrollierte Bewegungen sind effizienter und erfordern weniger Kraftaufwand als ruckartige Wiederholungen."
+
+**Automatischer Ermüdungshinweis** (wenn Intervall-Standardabweichung > Schwellenwert):
+> „Dein Tempo wurde gegen Ende deutlich ungleichmäßiger – typisches Zeichen von Ermüdung."
 
 ---
 
@@ -315,15 +360,23 @@ CREATE TABLE PushUpsRecord (
 );
 ```
 
-**Mapping:**
-- `which=1`: freie Einheiten (~20 Reps Ø) → als freies Training importieren
-- `which=3`: Session-Totals (~107 Reps Ø im Custom-Modus) → als Haupt-Import
+**Import-Strategie: Alle Einträge importieren** – der geringe Mehraufwand einer Filterung lohnt sich bei der Datenmenge (1.104 Einträge) nicht.
+
+**Mapping nach Typ:**
+
+| `which` | Typ | ApexPush-Entsprechung |
+|---------|-----|----------------------|
+| `1`     | Freies Training (~20 Reps Ø) | `Workout(isFreeTraining: true, isImported: true)` |
+| `3`     | Session-Total (~107 Reps Ø) | `Workout(isFreeTraining: false, isImported: true)` |
+
+> `which=2` (Programm-Set-Einträge, nur 21 Stück) können ebenfalls als `isFreeTraining: true` importiert werden.
 
 **Vorgehensweise:**
 1. Datei-Picker für `.puud`-Dateien öffnen
 2. ZIP-Eintrag `PushUps_Mos.db` in temporäres Verzeichnis extrahieren
-3. SQLite-Abfrage ausführen
-4. Als `Workout(isImported: true)` in lokale DB schreiben
+3. SQLite-Abfrage auf `PushUpsRecord` ausführen (alle Einträge mit `num > 0`)
+4. `isImported: true` setzen, Typ nach `which`-Wert unterscheiden
+5. Batch-Insert in lokale ApexPush-Datenbank
 
 ### 7.2 CSV-Export / -Import
 
@@ -396,14 +449,8 @@ Eigener Screen nach Original-App-Struktur (Options-Screenshot):
 
 ## 10. Offene Fragen
 
-1. **Ruhezeiten**: Welche genauen Sekunden sollen zwischen den Sätzen je Level-Gruppe gelten? (Vorschlag: 60s/90s/120s)
+Alle bisherigen Fragen sind geklärt. Folgende Punkte bleiben für spätere Iterationen offen:
 
-2. **`.puud`-Import**: Sollen `which=1` (freie Einheiten, Ø 20 Reps) und `which=3` (Session-Totals, Ø 107 Reps) beide importiert werden, oder nur einer? Sollen sie unterschiedlich gekennzeichnet werden?
+1. **Kalorie-Erweiterung**: Wenn die Formel später auf Körpergewicht + Bewegungsgeschwindigkeit ausgedehnt werden soll, ist ein Settings-Feld „Körpergewicht (kg)" und die Integration der `accel_stddev`-Daten aus `rep_details` der Weg. Kein Handlungsbedarf jetzt.
 
-3. **Levelfortschritt**: Wechselt die App automatisch zur nächsten Woche/Stufe nach Abschluss, oder muss der Nutzer das manuell bestätigen?
-
-4. **Practice-Einschätzung**: Nach einer freien Runde – welche Logik soll den empfohlenen Einstiegslevel bestimmen? (z.B. max. Reps ≤ 5 → Level 1 Easy, etc.)
-
-5. **Analyse-Graph**: Nur auf Abruf in der Session-Detailansicht, oder auch direkt im Post-Training-Flow?
-
-6. **Kalorie-Formel**: Soll eine feste Näherung (~0,5 kcal/Rep) verwendet werden, oder soll das Körpergewicht des Nutzers eingegeben werden können für eine genauere Berechnung?
+2. **Ermüdungs-Schwellenwert** für den automatischen Hinweis im Analyse-Graph: Muss nach ersten Datensammlungen kalibriert werden (Startwert: Intervall-Stddev > 30 % des Mittelwerts).
