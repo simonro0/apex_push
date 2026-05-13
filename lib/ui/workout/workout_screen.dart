@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,15 +19,13 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
-  // Set tracking (structured mode only)
-  List<int> _targetReps = [];
-  int _currentSet  = 0;   // 0-based
-  int _setStartCount = 0; // provider.currentCount at the start of this set
+  List<int> _targetReps   = [];
+  int  _currentSet        = 0;
+  int  _setStartCount     = 0;
 
-  // Rest timer
   Timer? _restTimer;
-  int  _restSecondsLeft = 0;
-  bool _inRest = false;
+  int    _restSecondsLeft = 0;
+  bool   _inRest          = false;
 
   @override
   void initState() {
@@ -52,11 +51,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   int _setCountFrom(WorkoutProvider p) => p.currentCount - _setStartCount;
-
   int get _setsTotal => _targetReps.length;
+  int _targetFor(int i) => i < _targetReps.length ? _targetReps[i] : 0;
 
-  int _targetFor(int setIndex) =>
-      setIndex < _targetReps.length ? _targetReps[setIndex] : 0;
+  /// Interpolates from light-green → deep-green as excess reps grow.
+  Color _finishButtonColor(int setCount, int target) {
+    if (setCount < target) return Colors.red.shade700;
+    if (target == 0)       return Colors.green.shade600;
+    final ratio = ((setCount - target) / max(target, 1) * 4).clamp(0.0, 1.0);
+    return Color.lerp(Colors.green.shade300, Colors.green.shade900, ratio)!;
+  }
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -66,7 +70,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   void _finishSet(WorkoutProvider provider) {
-    // Record reps for this set before clearing the counter
     provider.recordSetSplit(_setCountFrom(provider));
 
     if (_currentSet >= _setsTotal - 1) {
@@ -76,10 +79,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     _restTimer?.cancel();
     setState(() {
-      _setStartCount    = provider.currentCount;
+      _setStartCount   = provider.currentCount;
       _currentSet++;
-      _inRest           = true;
-      _restSecondsLeft  = TrainingData.getRestSeconds(provider.activeProgram.difficulty);
+      _inRest          = true;
+      _restSecondsLeft =
+          TrainingData.getRestSeconds(provider.activeProgram.difficulty);
     });
 
     _restTimer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -100,16 +104,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     setState(() => _inRest = false);
   }
 
-  void _abort(WorkoutProvider provider) {
-    // Record partial set then go to finish flow
+  Future<void> _abort(WorkoutProvider provider) async {
     provider.recordSetSplit(_setCountFrom(provider));
-    _finish(provider);
+    await _finish(provider);
   }
 
   Future<void> _finish(WorkoutProvider provider) async {
     _restTimer?.cancel();
 
-    // Capture local state before any awaits
     final isFree         = widget.isFreeTraining;
     final targetRepsCopy = List<int>.from(_targetReps);
     final splitsCopy     = List<int>.from(provider.sessionSplits);
@@ -117,7 +119,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final workout = await provider.saveWorkout(isFreeTraining: isFree);
     if (!mounted) return;
 
-    // Post-training detail screen (structured mode only)
     if (!isFree && splitsCopy.isNotEmpty) {
       await Navigator.push<void>(
         context,
@@ -142,14 +143,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       if (direction != 'keep') {
         await _showLevelChangedDialog(context, provider);
       }
-
       if (!mounted) return;
     }
 
     Navigator.pop(context);
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +162,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  // ── Free-training mode ─────────────────────────────────────────────────────
+  // ── Free-training mode ────────────────────────────────────────────────────
 
   Widget _buildFreeTraining(WorkoutProvider provider) {
     return GestureDetector(
@@ -210,10 +210,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  // ── Structured mode ────────────────────────────────────────────────────────
+  // ── Structured mode ───────────────────────────────────────────────────────
 
   Widget _buildStructured(WorkoutProvider provider) {
-    if (_inRest) return _buildRestPhase();
+    if (_inRest) return _buildRestPhase(provider);
     return _buildActiveSet(provider);
   }
 
@@ -223,11 +223,30 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final isLast   = _currentSet >= _setsTotal - 1;
     final atTarget = setCount >= target;
 
+    final buttonColor = _finishButtonColor(setCount, target);
+    final buttonLabel = atTarget
+        ? (isLast ? 'TRAINING ABSCHLIESSEN' : 'SATZ ABSCHLIESSEN')
+        : (isLast ? 'TRAINING ABBRECHEN'    : 'SATZ ABBRECHEN');
+
     return GestureDetector(
       onTap: () => _onTap(provider),
       behavior: HitTestBehavior.opaque,
       child: Stack(
         children: [
+          // ── Set overview (top) ────────────────────────────────────────────
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 0,
+            right: 0,
+            child: _SetOverview(
+              setsTotal:    _setsTotal,
+              currentSet:   _currentSet,
+              targetReps:   _targetReps,
+              splits:       provider.sessionSplits,
+            ),
+          ),
+
+          // ── Counter ───────────────────────────────────────────────────────
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -252,6 +271,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ],
             ),
           ),
+
+          // ── Buttons (bottom) ──────────────────────────────────────────────
           Positioned(
             bottom: 50,
             left: 20,
@@ -261,22 +282,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               children: [
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isLast ? Colors.redAccent : Colors.blueAccent,
+                    backgroundColor: buttonColor,
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     minimumSize: const Size(double.infinity, 0),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: () => _finishSet(provider),
+                  onPressed: () async {
+                    if (!atTarget) {
+                      final ok = await _showAbortSetDialog(context, isLast);
+                      if (ok != true || !mounted) return;
+                    }
+                    _finishSet(provider);
+                  },
                   child: Text(
-                    isLast ? 'TRAINING ABSCHLIESSEN' : 'SATZ ABSCHLIESSEN',
+                    buttonLabel,
                     style: const TextStyle(fontSize: 18, color: Colors.white),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextButton(
-                  onPressed: () => _abort(provider),
+                  onPressed: () async {
+                    final ok = await _showAbortSessionDialog(context);
+                    if (ok != true || !mounted) return;
+                    _abort(provider);
+                  },
                   child: const Text(
                     'Training abbrechen',
                     style: TextStyle(color: Colors.white38, fontSize: 14),
@@ -290,12 +321,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  Widget _buildRestPhase() {
+  Widget _buildRestPhase(WorkoutProvider provider) {
     final nextTarget = _targetFor(_currentSet);
     final isLast3    = _restSecondsLeft <= 3;
 
     return Stack(
       children: [
+        // ── Set overview (top) ──────────────────────────────────────────────
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          left: 0,
+          right: 0,
+          child: _SetOverview(
+            setsTotal:  _setsTotal,
+            currentSet: _currentSet,
+            targetReps: _targetReps,
+            splits:     provider.sessionSplits,
+          ),
+        ),
+
         Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -342,7 +386,173 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 }
 
-// ── Dialogs ────────────────────────────────────────────────────────────────────
+// ── Set overview widget ───────────────────────────────────────────────────────
+
+class _SetOverview extends StatelessWidget {
+  const _SetOverview({
+    required this.setsTotal,
+    required this.currentSet,
+    required this.targetReps,
+    required this.splits,
+  });
+
+  final int        setsTotal;
+  final int        currentSet;
+  final List<int>  targetReps;
+  final List<int>  splits;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: List.generate(setsTotal, (i) {
+          final target    = i < targetReps.length ? targetReps[i] : 0;
+          final isDone    = i < currentSet;
+          final isCurrent = i == currentSet;
+          final achieved  = isDone && i < splits.length ? splits[i] : null;
+
+          return _SetChip(
+            index:    i,
+            target:   target,
+            achieved: achieved,
+            isCurrent: isCurrent,
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _SetChip extends StatelessWidget {
+  const _SetChip({
+    required this.index,
+    required this.target,
+    required this.achieved,
+    required this.isCurrent,
+  });
+
+  final int  index;
+  final int  target;
+  final int? achieved;
+  final bool isCurrent;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDone = achieved != null;
+    final ok     = isDone && achieved! >= target;
+
+    Color bg;
+    Color fg;
+    if (isCurrent) {
+      bg = Colors.white24;
+      fg = Colors.white;
+    } else if (isDone) {
+      bg = ok ? Colors.green.shade800 : Colors.orange.shade800;
+      fg = Colors.white;
+    } else {
+      bg = Colors.white10;
+      fg = Colors.white38;
+    }
+
+    final label = isDone ? '${achieved!}' : '$target';
+    final sublabel = isDone ? '/ $target' : 'Wdh.';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: isCurrent
+            ? Border.all(color: Colors.white54, width: 1.5)
+            : null,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'S${index + 1}',
+            style: TextStyle(
+              color: fg.withAlpha(180),
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              color: fg,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            sublabel,
+            style: TextStyle(color: fg.withAlpha(140), fontSize: 9),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Dialogs ───────────────────────────────────────────────────────────────────
+
+Future<bool?> _showAbortSetDialog(BuildContext context, bool isLast) =>
+    showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isLast ? 'Training abbrechen?' : 'Satz abbrechen?'),
+        content: Text(
+          isLast
+              ? 'Das Training wird mit den bisher erreichten Wiederholungen gespeichert.'
+              : 'Der aktuelle Satz wird mit den bisher erreichten Wiederholungen gewertet.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ZURÜCK'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              isLast ? 'TRAINING ABBRECHEN' : 'SATZ ABBRECHEN',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+Future<bool?> _showAbortSessionDialog(BuildContext context) =>
+    showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Training abbrechen?'),
+        content: const Text(
+          'Das Training wird mit den bisher erreichten Wiederholungen gespeichert.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('WEITERMACHEN'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'ABBRECHEN',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
 
 Future<String?> _showFeedbackDialog(BuildContext context) =>
     showDialog<String>(

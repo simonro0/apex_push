@@ -74,30 +74,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-// ── Hero image (push-up illustration, background cut out via luminosity mask) ─
+// ── Hero image ────────────────────────────────────────────────────────────────
 
 class _HeroImage extends StatelessWidget {
   const _HeroImage();
 
-  // Luminosity-to-alpha with threshold: A' = 3*lum - 0.302
-  // Dark pixels (background ~#0d0d0d) become fully transparent.
-  // Bright / coloured pixels remain opaque.
-  static const _cutoutFilter = ColorFilter.matrix([
-    1, 0, 0, 0, 0,
-    0, 1, 0, 0, 0,
-    0, 0, 1, 0, 0,
-    0.6378, 2.1456, 0.2166, 0, -77,
-  ]);
-
   @override
   Widget build(BuildContext context) {
-    return ColorFiltered(
-      colorFilter: _cutoutFilter,
-      child: Image.asset(
-        'assets/images/pushup.png',
-        fit: BoxFit.contain,
-        alignment: Alignment.bottomCenter,
-      ),
+    return Image.asset(
+      'assets/images/pushup.png',
+      fit: BoxFit.contain,
+      alignment: Alignment.bottomCenter,
     );
   }
 }
