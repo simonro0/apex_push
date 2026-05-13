@@ -44,7 +44,10 @@ class PuudImportService {
 
       final db = await openDatabase(dbPath, readOnly: true);
       try {
-        final rows = await db.query('PushUpsRecord', where: 'num > 0');
+        // rawQuery bypasses sqflite's Android CursorWindow row limit (~1000).
+        final rows = await db.rawQuery(
+          'SELECT * FROM PushUpsRecord WHERE num > 0',
+        );
         return rows.map(_rowToWorkout).toList();
       } finally {
         await db.close();

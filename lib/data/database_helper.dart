@@ -64,11 +64,16 @@ class DatabaseHelper {
 
   Future<void> batchInsert(List<Workout> workouts) async {
     final db = await instance.database;
-    final batch = db.batch();
-    for (final w in workouts) {
-      batch.insert('workouts', w.toMap());
+    // Process in chunks to stay within SQLite transaction limits.
+    const chunkSize = 500;
+    for (var i = 0; i < workouts.length; i += chunkSize) {
+      final end = (i + chunkSize).clamp(0, workouts.length);
+      final batch = db.batch();
+      for (final w in workouts.sublist(i, end)) {
+        batch.insert('workouts', w.toMap());
+      }
+      await batch.commit(noResult: true);
     }
-    await batch.commit(noResult: true);
   }
 
   Future<void> close() async => (await instance.database).close();

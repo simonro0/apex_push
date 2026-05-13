@@ -282,8 +282,7 @@ class _ComboChart extends StatelessWidget {
             gridData:     const FlGridData(show: true),
             borderData:   FlBorderData(show: false),
             titlesData:   sharedTitles,
-            alignment:    BarChartAlignment.start,
-            groupsSpace:  4,
+            alignment:    BarChartAlignment.spaceBetween,
             barTouchData: BarTouchData(
               touchCallback: (FlTouchEvent event, BarTouchResponse? response) {
                 if (!event.isInterestedForInteractions) return;
