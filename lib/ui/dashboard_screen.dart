@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../data/csv_service.dart';
 import '../logic/workout_provider.dart';
+import '../models/workout.dart';
+import 'level_picker_screen.dart';
 import 'widgets/workout_stat_card.dart';
 import 'workout/workout_screen.dart';
 
@@ -53,16 +55,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _StatsBar(provider: provider),
-          _ActiveProgramTile(program: provider.activeProgram.toString()),
+          _ActiveProgramTile(
+            program: provider.activeProgram,
+            onTap:   () => _openLevelPicker(context, provider),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('History', style: Theme.of(context).textTheme.headlineSmall),
+                Text('Verlauf', style: Theme.of(context).textTheme.headlineSmall),
                 if (provider.history.isNotEmpty)
                   Text(
-                    '${provider.history.length} sessions',
+                    '${provider.history.length} Sessions',
                     style: const TextStyle(color: Colors.grey),
                   ),
               ],
@@ -76,19 +81,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     itemBuilder: (_, i) => WorkoutStatCard(provider.history[i]),
                   ),
           ),
+          _NavigationButtons(provider: provider),
         ],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton.extended(
-        label: const Text('START TRAINING'),
-        icon: const Icon(Icons.play_arrow),
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const WorkoutScreen()),
-        ),
       ),
     );
   }
+
+  // ── Level picker ───────────────────────────────────────────────────────────
+
+  Future<void> _openLevelPicker(
+      BuildContext context, WorkoutProvider provider) async {
+    final result = await Navigator.push<ActiveProgram>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LevelPickerScreen(current: provider.activeProgram),
+      ),
+    );
+    if (result != null) {
+      await provider.saveActiveProgram(result);
+    }
+  }
+
+  // ── Import helpers ─────────────────────────────────────────────────────────
 
   Future<void> _importCsv(BuildContext context, WorkoutProvider provider) async {
     final imported = await CsvService.importFromCsv();
@@ -173,20 +187,114 @@ class _StatCell extends StatelessWidget {
 // ── Active programme tile ─────────────────────────────────────────────────────
 
 class _ActiveProgramTile extends StatelessWidget {
-  const _ActiveProgramTile({required this.program});
-  final String program;
+  const _ActiveProgramTile({required this.program, required this.onTap});
+  final ActiveProgram program;
+  final VoidCallback  onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
-        children: [
-          const Icon(Icons.fitness_center, size: 18),
-          const SizedBox(width: 8),
-          Text('Aktuelles Level: ', style: Theme.of(context).textTheme.bodyMedium),
-          Text(program, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-        ],
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        child: Row(
+          children: [
+            const Icon(Icons.fitness_center, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              'Aktuelles Level: ',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            Text(
+              program.toString(),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const Spacer(),
+            const Icon(Icons.edit_outlined, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Navigation buttons (TRAINING / PRACTICE / RECORD) ─────────────────────────
+
+class _NavigationButtons extends StatelessWidget {
+  const _NavigationButtons({required this.provider});
+  final WorkoutProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('TRAINING', style: TextStyle(fontSize: 17)),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WorkoutScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.self_improvement, size: 20),
+                    label: const Text('PRACTICE', style: TextStyle(fontSize: 15)),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WorkoutScreen(isFreeTraining: true),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.bar_chart, size: 20),
+                    label: const Text('RECORD', style: TextStyle(fontSize: 15)),
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Record-Ansicht kommt bald.')),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
