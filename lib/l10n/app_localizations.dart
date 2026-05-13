@@ -37,6 +37,12 @@ class AppLocalizations {
       'data': 'Daten',
       'sensor_threshold': 'Sensor-Schwellwert',
       'close': 'Schließen',
+      'clear_all_data': 'Alle Daten löschen',
+      'clear_all_data_confirm':
+          'Alle Trainingsdaten werden unwiderruflich gelöscht. Fortfahren?',
+      'cancel': 'Abbrechen',
+      'delete': 'Löschen',
+      'all_data_deleted': 'Alle Daten wurden gelöscht.',
     },
     'en': {
       'app_title': 'ApexPush',
@@ -70,6 +76,12 @@ class AppLocalizations {
       'data': 'Data',
       'sensor_threshold': 'Sensor Threshold',
       'close': 'Close',
+      'clear_all_data': 'Clear All Data',
+      'clear_all_data_confirm':
+          'All training data will be permanently deleted. Continue?',
+      'cancel': 'Cancel',
+      'delete': 'Delete',
+      'all_data_deleted': 'All data has been deleted.',
     },
   };
 

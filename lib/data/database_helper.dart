@@ -76,5 +76,10 @@ class DatabaseHelper {
     }
   }
 
+  Future<void> deleteAllWorkouts() async {
+    final db = await instance.database;
+    await db.delete('workouts');
+  }
+
   Future<void> close() async => (await instance.database).close();
 }

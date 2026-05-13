@@ -150,6 +150,11 @@ class WorkoutProvider with ChangeNotifier {
     await loadHistoryFromDb();
   }
 
+  Future<void> clearAllData() async {
+    await DatabaseHelper.instance.deleteAllWorkouts();
+    await loadHistoryFromDb();
+  }
+
   /// Imports from a .puud backup file. Returns the number of imported workouts,
   /// or -1 if the user cancelled the file picker.
   Future<int> importFromPuud() async {

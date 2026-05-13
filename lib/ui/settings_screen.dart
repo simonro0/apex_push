@@ -55,6 +55,12 @@ class SettingsScreen extends StatelessWidget {
             title: context.t('import_puud'),
             onTap: () => _importPuud(context),
           ),
+          _SettingsTile(
+            icon: Icons.delete_forever,
+            title: context.t('clear_all_data'),
+            titleColor: Colors.red,
+            onTap: () => _confirmClearAll(context),
+          ),
           const Divider(height: 1),
         ],
       ),
@@ -97,6 +103,36 @@ class SettingsScreen extends StatelessWidget {
       SnackBar(
         content: Text('${imported.length} ${context.tr('entries_imported')}'),
       ),
+    );
+  }
+
+  Future<void> _confirmClearAll(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(context.tr('clear_all_data')),
+        content: Text(context.tr('clear_all_data_confirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.tr('cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.tr('delete')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    await context.read<WorkoutProvider>().clearAllData();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.tr('all_data_deleted'))),
     );
   }
 
@@ -270,18 +306,21 @@ class _SettingsTile extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
+    this.titleColor,
     required this.onTap,
   });
   final IconData icon;
   final String title;
   final String? subtitle;
+  final Color? titleColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final color = titleColor;
     return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
+      leading: Icon(icon, color: color),
+      title: Text(title, style: color != null ? TextStyle(color: color) : null),
       subtitle: subtitle != null ? Text(subtitle!) : null,
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
