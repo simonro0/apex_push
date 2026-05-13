@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../logic/audio_service.dart';
+import '../../logic/settings_provider.dart';
 import '../../logic/workout_provider.dart';
 import '../../models/training_data.dart';
 import '../session_detail_screen.dart';
@@ -28,12 +30,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   int    _restSecondsLeft = 0;
   bool   _inRest          = false;
 
+  bool _targetReachedPlayed = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final p = context.read<WorkoutProvider>();
-      p.startWorkout();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final p        = context.read<WorkoutProvider>();
+      final settings = context.read<SettingsProvider>();
+
+      await AudioService.instance.init();
+      p.startWorkout(sensorThreshold: settings.sensorThreshold);
+
       if (!widget.isFreeTraining) {
         final prog = p.activeProgram;
         setState(() {
@@ -67,6 +75,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void _onTap(WorkoutProvider provider) {
     provider.incrementCount();
     HapticFeedback.lightImpact();
+
+    final settings = context.read<SettingsProvider>();
+    if (settings.audioEnabled) {
+      if (settings.repSoundEnabled) {
+        AudioService.instance.playRepTick();
+      }
+      if (!widget.isFreeTraining && !_targetReachedPlayed) {
+        final setCount = _setCountFrom(provider);
+        final target   = _targetFor(_currentSet);
+        if (target > 0 && setCount >= target) {
+          _targetReachedPlayed = true;
+          AudioService.instance.playTargetReached();
+        }
+      }
+    }
   }
 
   void _finishSet(WorkoutProvider provider) {
@@ -77,31 +100,43 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       return;
     }
 
+    _startRest(provider);
+  }
+
+  void _startRest(WorkoutProvider provider) {
+    final settings = context.read<SettingsProvider>();
+    final restSecs = settings.getRestSeconds(provider.activeProgram.difficulty);
+
     _restTimer?.cancel();
     setState(() {
-      _setStartCount   = provider.currentCount;
+      _setStartCount        = provider.currentCount;
       _currentSet++;
-      _inRest          = true;
-      _restSecondsLeft =
-          TrainingData.getRestSeconds(provider.activeProgram.difficulty);
+      _inRest               = true;
+      _restSecondsLeft      = restSecs;
+      _targetReachedPlayed  = false;
     });
 
     _restTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) { t.cancel(); return; }
-      setState(() {
-        if (_restSecondsLeft <= 1) {
-          t.cancel();
-          _inRest = false;
-        } else {
-          _restSecondsLeft--;
+      if (_restSecondsLeft <= 1) {
+        t.cancel();
+        setState(() => _inRest = false);
+        if (settings.audioEnabled) AudioService.instance.playRestEnd();
+      } else {
+        setState(() => _restSecondsLeft--);
+        if (settings.audioEnabled && _restSecondsLeft <= 3) {
+          AudioService.instance.playCountdown();
         }
-      });
+      }
     });
   }
 
   void _skipRest() {
     _restTimer?.cancel();
-    setState(() => _inRest = false);
+    setState(() {
+      _inRest              = false;
+      _targetReachedPlayed = false;
+    });
   }
 
   Future<void> _abort(WorkoutProvider provider) async {

@@ -110,6 +110,19 @@ class AppLocalizations {
       // ── Workout stat card ─────────────────────────────────────────────────
       'pushups': 'Liegestütze',
       'rpm': 'W/Min',
+      // ── Audio settings ────────────────────────────────────────────────────
+      'audio': 'Audio',
+      'audio_enabled': 'Audio-Feedback',
+      'rep_sound': 'Ton pro Wiederholung',
+      // ── Training settings ─────────────────────────────────────────────────
+      'training_settings': 'Training',
+      'rest_easy': 'Pause (Leicht)',
+      'rest_normal': 'Pause (Normal)',
+      'rest_hard': 'Pause (Schwer)',
+      'sensor_sensitivity': 'Sensor-Empfindlichkeit',
+      'sensitivity_high': 'Hoch',
+      'sensitivity_medium': 'Mittel',
+      'sensitivity_low': 'Niedrig',
     },
     'en': {
       // ── App / Dashboard ──────────────────────────────────────────────────
@@ -213,6 +226,19 @@ class AppLocalizations {
       // ── Workout stat card ─────────────────────────────────────────────────
       'pushups': 'Push-Ups',
       'rpm': 'reps/min',
+      // ── Audio settings ────────────────────────────────────────────────────
+      'audio': 'Audio',
+      'audio_enabled': 'Audio Feedback',
+      'rep_sound': 'Rep Sound',
+      // ── Training settings ─────────────────────────────────────────────────
+      'training_settings': 'Training',
+      'rest_easy': 'Rest (Easy)',
+      'rest_normal': 'Rest (Normal)',
+      'rest_hard': 'Rest (Hard)',
+      'sensor_sensitivity': 'Sensor Sensitivity',
+      'sensitivity_high': 'High',
+      'sensitivity_medium': 'Medium',
+      'sensitivity_low': 'Low',
     },
   };
 

@@ -8,7 +8,7 @@ import '../models/training_data.dart';
 import '../models/workout.dart';
 
 class WorkoutProvider with ChangeNotifier {
-  final SensorService _sensors;
+  late SensorService _sensors;
 
   List<Workout> _history = [];
   ActiveProgram _activeProgram = const ActiveProgram(unitId: '1-1', difficulty: 'Easy');
@@ -94,7 +94,9 @@ class WorkoutProvider with ChangeNotifier {
 
   // ── Workout session ────────────────────────────────────────────────────────
 
-  void startWorkout() {
+  void startWorkout({double sensorThreshold = 12.0}) {
+    _sensors.dispose();
+    _sensors             = SensorService(impactThreshold: sensorThreshold);
     _currentSessionCount = 0;
     _lastRepVerified     = false;
     _sessionSplits       = [];

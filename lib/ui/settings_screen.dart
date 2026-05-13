@@ -35,6 +35,67 @@ class SettingsScreen extends StatelessWidget {
           ),
           const Divider(height: 1),
 
+          // ── Audio ─────────────────────────────────────────────────────────
+          _SectionHeader(context.t('audio')),
+          SwitchListTile(
+            secondary: const Icon(Icons.volume_up_outlined),
+            title: Text(context.t('audio_enabled')),
+            value: settings.audioEnabled,
+            onChanged: (v) => settings.setAudioEnabled(v),
+          ),
+          SwitchListTile(
+            secondary: Icon(
+              Icons.music_note_outlined,
+              color: settings.audioEnabled ? null : Theme.of(context).disabledColor,
+            ),
+            title: Text(
+              context.t('rep_sound'),
+              style: settings.audioEnabled
+                  ? null
+                  : TextStyle(color: Theme.of(context).disabledColor),
+            ),
+            value: settings.audioEnabled && settings.repSoundEnabled,
+            onChanged: settings.audioEnabled
+                ? (v) => settings.setRepSoundEnabled(v)
+                : null,
+          ),
+          const Divider(height: 1),
+
+          // ── Training ──────────────────────────────────────────────────────
+          _SectionHeader(context.t('training_settings')),
+          _SliderTile(
+            icon: Icons.timer_outlined,
+            title: context.t('rest_easy'),
+            value: settings.restSecondsEasy.toDouble(),
+            min: 10,
+            max: 60,
+            divisions: 10,
+            label: '${settings.restSecondsEasy} s',
+            onChanged: (v) => settings.setRestSecondsEasy(v.round()),
+          ),
+          _SliderTile(
+            icon: Icons.timer_outlined,
+            title: context.t('rest_normal'),
+            value: settings.restSecondsNormal.toDouble(),
+            min: 30,
+            max: 120,
+            divisions: 9,
+            label: '${settings.restSecondsNormal} s',
+            onChanged: (v) => settings.setRestSecondsNormal(v.round()),
+          ),
+          _SliderTile(
+            icon: Icons.timer_outlined,
+            title: context.t('rest_hard'),
+            value: settings.restSecondsHard.toDouble(),
+            min: 60,
+            max: 180,
+            divisions: 8,
+            label: '${settings.restSecondsHard} s',
+            onChanged: (v) => settings.setRestSecondsHard(v.round()),
+          ),
+          _SensitivityTile(settings: settings),
+          const Divider(height: 1),
+
           // ── Data ─────────────────────────────────────────────────────────
           _SectionHeader(context.t('data')),
           _SettingsTile(
@@ -338,6 +399,120 @@ class _PickerHandle extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.outlineVariant,
         borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+}
+
+// ── Slider tile ───────────────────────────────────────────────────────────────
+
+class _SliderTile extends StatelessWidget {
+  const _SliderTile({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final IconData             icon;
+  final String               title;
+  final double               value;
+  final double               min;
+  final double               max;
+  final int                  divisions;
+  final String               label;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          leading: Icon(icon),
+          title: Text(title),
+          trailing: Text(
+            label,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(color: Theme.of(context).colorScheme.primary),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(56, 0, 16, 4),
+          child: Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Sensor sensitivity tile ───────────────────────────────────────────────────
+
+class _SensitivityTile extends StatelessWidget {
+  const _SensitivityTile({required this.settings});
+  final SettingsProvider settings;
+
+  static const _options = [
+    (label: 'sensitivity_high',   value: 8.0),
+    (label: 'sensitivity_medium', value: 12.0),
+    (label: 'sensitivity_low',    value: 16.0),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final primary  = Theme.of(context).colorScheme.primary;
+    final current  = settings.sensorThreshold;
+
+    return ListTile(
+      leading: const Icon(Icons.sensors),
+      title: Text(context.t('sensor_sensitivity')),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Row(
+          children: _options.map((opt) {
+            final selected = current == opt.value;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: GestureDetector(
+                  onTap: () => settings.setSensorThreshold(opt.value),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected ? primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: selected ? primary : Colors.grey.shade400,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      context.t(opt.label),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                        color: selected ? Colors.white : Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
