@@ -5,6 +5,7 @@ import '../data/csv_service.dart';
 import '../logic/workout_provider.dart';
 import '../models/workout.dart';
 import 'level_picker_screen.dart';
+import 'record_screen.dart';
 import 'widgets/workout_stat_card.dart';
 import 'workout/workout_screen.dart';
 
@@ -286,8 +287,11 @@ class _NavigationButtons extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.bar_chart, size: 20),
                     label: const Text('RECORD', style: TextStyle(fontSize: 15)),
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Record-Ansicht kommt bald.')),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RecordScreen(history: provider.history),
+                      ),
                     ),
                   ),
                 ),

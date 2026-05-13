@@ -41,6 +41,7 @@ dependencies:
   shared_preferences: any
   archive: any
   path: any
+  fl_chart: any
 
 
   # The following adds the Cupertino Icons font to your application.

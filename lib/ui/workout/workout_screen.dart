@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../logic/workout_provider.dart';
 import '../../models/training_data.dart';
+import '../session_detail_screen.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final bool isFreeTraining;
@@ -17,14 +18,14 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
-  // Structured-mode set tracking
+  // Set tracking (structured mode only)
   List<int> _targetReps = [];
-  int _currentSet = 0;   // 0-based
-  int _setStartCount = 0; // provider.currentCount at the beginning of this set
+  int _currentSet  = 0;   // 0-based
+  int _setStartCount = 0; // provider.currentCount at the start of this set
 
   // Rest timer
   Timer? _restTimer;
-  int _restSecondsLeft = 0;
+  int  _restSecondsLeft = 0;
   bool _inRest = false;
 
   @override
@@ -48,7 +49,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     super.dispose();
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   int _setCountFrom(WorkoutProvider p) => p.currentCount - _setStartCount;
 
@@ -65,17 +66,22 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   void _finishSet(WorkoutProvider provider) {
+    // Record reps for this set before clearing the counter
+    provider.recordSetSplit(_setCountFrom(provider));
+
     if (_currentSet >= _setsTotal - 1) {
       _finish(provider);
       return;
     }
+
     _restTimer?.cancel();
     setState(() {
-      _setStartCount = provider.currentCount;
+      _setStartCount    = provider.currentCount;
       _currentSet++;
-      _inRest = true;
-      _restSecondsLeft = TrainingData.getRestSeconds(provider.activeProgram.difficulty);
+      _inRest           = true;
+      _restSecondsLeft  = TrainingData.getRestSeconds(provider.activeProgram.difficulty);
     });
+
     _restTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) { t.cancel(); return; }
       setState(() {
@@ -94,21 +100,53 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     setState(() => _inRest = false);
   }
 
+  void _abort(WorkoutProvider provider) {
+    // Record partial set then go to finish flow
+    provider.recordSetSplit(_setCountFrom(provider));
+    _finish(provider);
+  }
+
   Future<void> _finish(WorkoutProvider provider) async {
-    await provider.saveWorkout(isFreeTraining: widget.isFreeTraining);
+    _restTimer?.cancel();
+
+    // Capture local state before any awaits
+    final isFree         = widget.isFreeTraining;
+    final targetRepsCopy = List<int>.from(_targetReps);
+    final splitsCopy     = List<int>.from(provider.sessionSplits);
+
+    final workout = await provider.saveWorkout(isFreeTraining: isFree);
     if (!mounted) return;
+
+    // Post-training detail screen (structured mode only)
+    if (!isFree && splitsCopy.isNotEmpty) {
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SessionDetailScreen(
+            workout:    workout,
+            splits:     splitsCopy,
+            targetReps: targetRepsCopy,
+          ),
+        ),
+      );
+      if (!mounted) return;
+    }
+
     final direction = await _showFeedbackDialog(context);
     if (direction == null || !mounted) return;
+
     await provider.stepDifficulty(direction);
     if (!mounted) return;
+
     if (direction != 'keep') {
       await _showLevelChangedDialog(context, provider);
     }
+
     if (!mounted) return;
     Navigator.pop(context);
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +159,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  // ── Free-training mode ────────────────────────────────────────────────────
+  // ── Free-training mode ─────────────────────────────────────────────────────
 
   Widget _buildFreeTraining(WorkoutProvider provider) {
     return GestureDetector(
@@ -169,10 +207,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  // ── Structured mode ───────────────────────────────────────────────────────
+  // ── Structured mode ────────────────────────────────────────────────────────
 
   Widget _buildStructured(WorkoutProvider provider) {
-    if (_inRest) return _buildRestPhase(provider);
+    if (_inRest) return _buildRestPhase();
     return _buildActiveSet(provider);
   }
 
@@ -235,7 +273,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextButton(
-                  onPressed: () => _finish(provider),
+                  onPressed: () => _abort(provider),
                   child: const Text(
                     'Training abbrechen',
                     style: TextStyle(color: Colors.white38, fontSize: 14),
@@ -249,7 +287,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  Widget _buildRestPhase(WorkoutProvider provider) {
+  Widget _buildRestPhase() {
     final nextTarget = _targetFor(_currentSet);
     final isLast3    = _restSecondsLeft <= 3;
 
@@ -261,7 +299,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             children: [
               const Text(
                 'PAUSE',
-                style: TextStyle(color: Colors.white54, fontSize: 22, letterSpacing: 4),
+                style: TextStyle(
+                    color: Colors.white54, fontSize: 22, letterSpacing: 4),
               ),
               const SizedBox(height: 16),
               Text(
@@ -287,10 +326,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.all(18),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: _skipRest,
-            child: const Text('PAUSE ÜBERSPRINGEN', style: TextStyle(fontSize: 16)),
+            child: const Text('PAUSE ÜBERSPRINGEN',
+                style: TextStyle(fontSize: 16)),
           ),
         ),
       ],
@@ -298,7 +339,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 }
 
-// ── Dialogs ───────────────────────────────────────────────────────────────────
+// ── Dialogs ────────────────────────────────────────────────────────────────────
 
 Future<String?> _showFeedbackDialog(BuildContext context) =>
     showDialog<String>(

@@ -17,6 +17,9 @@ class WorkoutProvider with ChangeNotifier {
   DateTime? _startTime;
   bool _lastRepVerified = false;
 
+  /// Rep counts for each completed set in the current session.
+  List<int> _sessionSplits = [];
+
   WorkoutProvider() : _sensors = SensorService();
 
   // ── Getters ────────────────────────────────────────────────────────────────
@@ -24,6 +27,9 @@ class WorkoutProvider with ChangeNotifier {
   int get currentCount => _currentSessionCount;
   List<Workout> get history => _history;
   ActiveProgram get activeProgram => _activeProgram;
+
+  /// Immutable view of per-set rep counts recorded this session.
+  List<int> get sessionSplits => List.unmodifiable(_sessionSplits);
 
   /// Pre-computed stats derived from history.
   int get bestDayCount {
@@ -62,7 +68,7 @@ class WorkoutProvider with ChangeNotifier {
 
   Future<void> loadActiveProgram() async {
     final prefs = await SharedPreferences.getInstance();
-    final unitId    = prefs.getString('active_unit_id')    ?? '1-1';
+    final unitId     = prefs.getString('active_unit_id')    ?? '1-1';
     final difficulty = prefs.getString('active_difficulty') ?? 'Easy';
     _activeProgram = ActiveProgram(unitId: unitId, difficulty: difficulty);
     notifyListeners();
@@ -90,8 +96,9 @@ class WorkoutProvider with ChangeNotifier {
 
   void startWorkout() {
     _currentSessionCount = 0;
-    _lastRepVerified = false;
-    _startTime = DateTime.now();
+    _lastRepVerified     = false;
+    _sessionSplits       = [];
+    _startTime           = DateTime.now();
     _sensors.init();
     notifyListeners();
   }
@@ -102,24 +109,33 @@ class WorkoutProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> saveWorkout({bool isFreeTraining = false}) async {
-    if (_startTime == null) return;
-    final duration = DateTime.now().difference(_startTime!).inSeconds;
+  /// Records the rep count for a completed (or aborted) set.
+  void recordSetSplit(int count) {
+    _sessionSplits.add(count);
+    // no notifyListeners needed – UI doesn't watch splits directly
+  }
+
+  /// Saves the current session to the database and returns the saved [Workout].
+  Future<Workout> saveWorkout({bool isFreeTraining = false}) async {
+    final duration = _startTime != null
+        ? DateTime.now().difference(_startTime!).inSeconds
+        : 0;
     final rpm = duration > 0 ? _currentSessionCount / (duration / 60.0) : 0.0;
 
     final workout = Workout(
-      date: DateTime.now(),
-      count: _currentSessionCount,
+      date:            DateTime.now(),
+      count:           _currentSessionCount,
       durationSeconds: duration,
-      avgRpm: rpm,
-      isVerified: _lastRepVerified,
-      isFreeTraining: isFreeTraining,
-      levelId:    isFreeTraining ? null : _activeProgram.unitId,
-      difficulty: isFreeTraining ? null : _activeProgram.difficulty,
+      avgRpm:          rpm,
+      isVerified:      _lastRepVerified,
+      isFreeTraining:  isFreeTraining,
+      levelId:         isFreeTraining ? null : _activeProgram.unitId,
+      difficulty:      isFreeTraining ? null : _activeProgram.difficulty,
     );
 
     await DatabaseHelper.instance.createWorkout(workout);
     await loadHistoryFromDb();
+    return workout;
   }
 
   // ── Data management ────────────────────────────────────────────────────────
