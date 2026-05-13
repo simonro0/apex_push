@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/training_data.dart';
 import '../models/workout.dart';
 
-/// Full-screen level picker.  Returns an [ActiveProgram] via [Navigator.pop]
-/// when the user taps "ÜBERNEHMEN", or null when they cancel.
 class LevelPickerScreen extends StatefulWidget {
   final ActiveProgram current;
 
@@ -35,7 +34,7 @@ class _LevelPickerScreenState extends State<LevelPickerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Level auswählen')),
+      appBar: AppBar(title: Text(context.t('select_level'))),
       body: ListView.builder(
         padding: const EdgeInsets.only(bottom: 100),
         itemCount: 8,
@@ -58,9 +57,13 @@ class _LevelPickerScreenState extends State<LevelPickerScreen> {
             ),
             onPressed: () => Navigator.pop(
               context,
-              ActiveProgram(unitId: _selectedUnit, difficulty: _selectedDifficulty),
+              ActiveProgram(
+                  unitId: _selectedUnit, difficulty: _selectedDifficulty),
             ),
-            child: const Text('ÜBERNEHMEN', style: TextStyle(fontSize: 16)),
+            child: Text(
+              context.t('apply'),
+              style: const TextStyle(fontSize: 16),
+            ),
           ),
         ),
       ),
@@ -68,10 +71,10 @@ class _LevelPickerScreenState extends State<LevelPickerScreen> {
   }
 }
 
-// ── Level section (one header + 3 unit rows) ──────────────────────────────────
+// ── Level section ─────────────────────────────────────────────────────────────
 
 class _LevelSection extends StatelessWidget {
-  final int level;
+  final int    level;
   final String selectedUnit;
   final String selectedDifficulty;
   final void Function(String unitId, String difficulty) onSelect;
@@ -92,7 +95,7 @@ class _LevelSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
           child: Text(
-            'Level $level',
+            context.tp('level_n', {'n': '$level'}),
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -112,11 +115,11 @@ class _LevelSection extends StatelessWidget {
   }
 }
 
-// ── Single unit row with Easy / Normal / Hard chips ───────────────────────────
+// ── Unit row ──────────────────────────────────────────────────────────────────
 
 class _UnitRow extends StatelessWidget {
   final String unitId;
-  final bool isSelectedUnit;
+  final bool   isSelectedUnit;
   final String selectedDifficulty;
   final void Function(String unitId, String difficulty) onSelect;
 
@@ -138,7 +141,8 @@ class _UnitRow extends StatelessWidget {
             child: Text(
               unitId,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: isSelectedUnit ? FontWeight.bold : FontWeight.normal,
+                fontWeight:
+                    isSelectedUnit ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),
@@ -168,22 +172,22 @@ class _UnitRow extends StatelessWidget {
     );
   }
 
-  static String _shortDiff(String d) => d.substring(0, 1); // E / N / H
+  static String _shortDiff(String d) => d.substring(0, 1);
 
   static Color _diffColor(String d) => switch (d) {
-    'Easy'   => Colors.green,
-    'Normal' => Colors.orange,
-    'Hard'   => Colors.red,
-    _        => Colors.grey,
-  };
+        'Easy'   => Colors.green,
+        'Normal' => Colors.orange,
+        'Hard'   => Colors.red,
+        _        => Colors.grey,
+      };
 }
 
 // ── Difficulty chip ───────────────────────────────────────────────────────────
 
 class _DiffChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final Color color;
+  final String       label;
+  final bool         selected;
+  final Color        color;
   final VoidCallback onTap;
 
   const _DiffChip({
@@ -202,7 +206,8 @@ class _DiffChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         decoration: BoxDecoration(
           color:        selected ? color.withValues(alpha: 0.2) : Colors.transparent,
-          border:       Border.all(color: selected ? color : Colors.grey.shade400),
+          border:       Border.all(
+              color: selected ? color : Colors.grey.shade400),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(

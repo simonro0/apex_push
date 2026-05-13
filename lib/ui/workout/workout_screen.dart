@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../logic/workout_provider.dart';
 import '../../models/training_data.dart';
 import '../session_detail_screen.dart';
@@ -54,7 +55,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   int get _setsTotal => _targetReps.length;
   int _targetFor(int i) => i < _targetReps.length ? _targetReps[i] : 0;
 
-  /// Interpolates from light-green → deep-green as excess reps grow.
   Color _finishButtonColor(int setCount, int target) {
     if (setCount < target) return Colors.red.shade700;
     if (target == 0)       return Colors.green.shade600;
@@ -174,9 +174,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  'FREIES TRAINING',
-                  style: TextStyle(color: Colors.white54, fontSize: 16),
+                Text(
+                  context.t('free_training'),
+                  style: const TextStyle(color: Colors.white54, fontSize: 16),
                 ),
                 Text(
                   '${provider.currentCount}',
@@ -199,9 +199,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 padding: const EdgeInsets.all(20),
               ),
               onPressed: () => _finish(provider),
-              child: const Text(
-                'FINISH SESSION',
-                style: TextStyle(fontSize: 20, color: Colors.white),
+              child: Text(
+                context.t('finish_session'),
+                style: const TextStyle(fontSize: 20, color: Colors.white),
               ),
             ),
           ),
@@ -225,39 +225,39 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     final buttonColor = _finishButtonColor(setCount, target);
     final buttonLabel = atTarget
-        ? (isLast ? 'TRAINING ABSCHLIESSEN' : 'SATZ ABSCHLIESSEN')
-        : (isLast ? 'TRAINING ABBRECHEN'    : 'SATZ ABBRECHEN');
+        ? context.tr(isLast ? 'finish_training' : 'finish_set')
+        : context.tr(isLast ? 'abort_training_btn' : 'abort_set_btn');
 
     return GestureDetector(
       onTap: () => _onTap(provider),
       behavior: HitTestBehavior.opaque,
       child: Stack(
         children: [
-          // ── Set overview (top) ────────────────────────────────────────────
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             left: 0,
             right: 0,
             child: _SetOverview(
-              setsTotal:    _setsTotal,
-              currentSet:   _currentSet,
-              targetReps:   _targetReps,
-              splits:       provider.sessionSplits,
+              setsTotal:  _setsTotal,
+              currentSet: _currentSet,
+              targetReps: _targetReps,
+              splits:     provider.sessionSplits,
             ),
           ),
-
-          // ── Counter ───────────────────────────────────────────────────────
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'Satz ${_currentSet + 1} von $_setsTotal',
+                  context.tp('set_x_of_y', {
+                    'set':   '${_currentSet + 1}',
+                    'total': '$_setsTotal',
+                  }),
                   style: const TextStyle(color: Colors.white54, fontSize: 20),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Ziel: $target Wdh.',
+                  context.tp('target_reps', {'n': '$target'}),
                   style: const TextStyle(color: Colors.white38, fontSize: 15),
                 ),
                 Text(
@@ -271,8 +271,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ],
             ),
           ),
-
-          // ── Buttons (bottom) ──────────────────────────────────────────────
           Positioned(
             bottom: 50,
             left: 20,
@@ -308,9 +306,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     if (ok != true || !mounted) return;
                     _abort(provider);
                   },
-                  child: const Text(
-                    'Training abbrechen',
-                    style: TextStyle(color: Colors.white38, fontSize: 14),
+                  child: Text(
+                    context.t('abort_training_link'),
+                    style: const TextStyle(color: Colors.white38, fontSize: 14),
                   ),
                 ),
               ],
@@ -327,7 +325,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     return Stack(
       children: [
-        // ── Set overview (top) ──────────────────────────────────────────────
         Positioned(
           top: MediaQuery.of(context).padding.top + 8,
           left: 0,
@@ -339,14 +336,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             splits:     provider.sessionSplits,
           ),
         ),
-
         Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                'PAUSE',
-                style: TextStyle(
+              Text(
+                context.t('rest'),
+                style: const TextStyle(
                     color: Colors.white54, fontSize: 22, letterSpacing: 4),
               ),
               const SizedBox(height: 16),
@@ -360,7 +356,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Nächster Satz: $nextTarget Wdh.',
+                context.tp('next_set_reps', {'n': '$nextTarget'}),
                 style: const TextStyle(color: Colors.white54, fontSize: 16),
               ),
             ],
@@ -377,8 +373,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: _skipRest,
-            child: const Text('PAUSE ÜBERSPRINGEN',
-                style: TextStyle(fontSize: 16)),
+            child: Text(
+              context.t('skip_rest'),
+              style: const TextStyle(fontSize: 16),
+            ),
           ),
         ),
       ],
@@ -414,9 +412,9 @@ class _SetOverview extends StatelessWidget {
           final achieved  = isDone && i < splits.length ? splits[i] : null;
 
           return _SetChip(
-            index:    i,
-            target:   target,
-            achieved: achieved,
+            index:     i,
+            target:    target,
+            achieved:  achieved,
             isCurrent: isCurrent,
           );
         }),
@@ -456,8 +454,10 @@ class _SetChip extends StatelessWidget {
       fg = Colors.white38;
     }
 
-    final label = isDone ? '${achieved!}' : '$target';
-    final sublabel = isDone ? '/ $target' : 'Wdh.';
+    final label    = isDone ? '${achieved!}' : '$target';
+    final sublabel = isDone
+        ? '/ $target'
+        : context.t('reps_short');
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -504,23 +504,19 @@ Future<bool?> _showAbortSetDialog(BuildContext context, bool isLast) =>
     showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(isLast ? 'Training abbrechen?' : 'Satz abbrechen?'),
-        content: Text(
-          isLast
-              ? 'Das Training wird mit den bisher erreichten Wiederholungen gespeichert.'
-              : 'Der aktuelle Satz wird mit den bisher erreichten Wiederholungen gewertet.',
-        ),
+        title: Text(context.tr(isLast ? 'abort_last_title' : 'abort_set_title')),
+        content: Text(context.tr(isLast ? 'abort_last_msg' : 'abort_set_msg')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('ZURÜCK'),
+            child: Text(context.tr('back')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red.shade700),
             onPressed: () => Navigator.pop(context, true),
             child: Text(
-              isLast ? 'TRAINING ABBRECHEN' : 'SATZ ABBRECHEN',
+              context.tr(isLast ? 'abort_training_btn' : 'abort_set_btn'),
               style: const TextStyle(color: Colors.white),
             ),
           ),
@@ -532,22 +528,20 @@ Future<bool?> _showAbortSessionDialog(BuildContext context) =>
     showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Training abbrechen?'),
-        content: const Text(
-          'Das Training wird mit den bisher erreichten Wiederholungen gespeichert.',
-        ),
+        title: Text(context.tr('abort_session_title')),
+        content: Text(context.tr('abort_session_msg')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('WEITERMACHEN'),
+            child: Text(context.tr('keep_going')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red.shade700),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'ABBRECHEN',
-              style: TextStyle(color: Colors.white),
+            child: Text(
+              context.tr('abort'),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         ],
@@ -559,20 +553,20 @@ Future<String?> _showFeedbackDialog(BuildContext context) =>
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: const Text('Training beendet'),
-        content: const Text('Wie war die Schwierigkeit?'),
+        title: Text(context.tr('training_finished')),
+        content: Text(context.tr('how_was_difficulty')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, 'down'),
-            child: const Text('ZU SCHWER'),
+            child: Text(context.tr('too_hard')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, 'keep'),
-            child: const Text('PASST SO'),
+            child: Text(context.tr('just_right')),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, 'up'),
-            child: const Text('ZU LEICHT'),
+            child: Text(context.tr('too_easy')),
           ),
         ],
       ),
@@ -585,15 +579,18 @@ Future<void> _showLevelChangedDialog(
   await showDialog<void>(
     context: context,
     builder: (_) => AlertDialog(
-      title: const Text('Level angepasst'),
+      title: Text(context.tr('level_adjusted')),
       content: Text(
-        'Neues Level: ${p.unitId} (${p.difficulty})\n'
-        'Sätze: ${reps.join(' – ')}',
+        context.tp('new_level_info', {
+          'unit': p.unitId,
+          'diff': p.difficulty,
+          'reps': reps.join(' – '),
+        }),
       ),
       actions: [
         ElevatedButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('OK'),
+          child: Text(context.tr('ok')),
         ),
       ],
     ),

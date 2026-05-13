@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/workout.dart';
 import 'session_detail_screen.dart';
 
@@ -39,13 +40,7 @@ class _RecordScreenState extends State<RecordScreen> {
   static int _daysInMonth(int year, int month) =>
       DateTime(year, month + 1, 0).day;
 
-  static String _monthLabel(DateTime d) {
-    const months = [
-      'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
-    ];
-    return '${months[d.month - 1]} ${d.year}';
-  }
+  String _monthLabel(DateTime d) => context.formatMonth(d);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
@@ -131,7 +126,7 @@ class _RecordScreenState extends State<RecordScreen> {
     final spots     = _buildSpots(data, valueFor);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Record')),
+      appBar: AppBar(title: Text(context.t('record'))),
       body: Column(
         children: [
           // ── Month navigation ──────────────────────────────────────────────
@@ -163,13 +158,13 @@ class _RecordScreenState extends State<RecordScreen> {
             child: Row(
               children: [
                 _TabChip(
-                  label:    'Liegestütze',
+                  label:    context.t('pushups_tab'),
                   selected: !_showCalories,
                   onTap:    () => setState(() => _showCalories = false),
                 ),
                 const SizedBox(width: 8),
                 _TabChip(
-                  label:    'Kalorien',
+                  label:    context.t('calories_tab'),
                   selected: _showCalories,
                   onTap:    () => setState(() => _showCalories = true),
                 ),
@@ -201,7 +196,7 @@ class _RecordScreenState extends State<RecordScreen> {
                   minimumSize: const Size(double.infinity, 48),
                 ),
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Home'),
+                child: Text(context.t('home')),
               ),
             ),
           ),

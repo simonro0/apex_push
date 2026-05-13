@@ -1,6 +1,6 @@
-// ui/widgets/workout_stat_card.dart
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/workout.dart';
 
 class WorkoutStatCard extends StatelessWidget {
@@ -15,13 +15,14 @@ class WorkoutStatCard extends StatelessWidget {
         workout.isImported ? Icons.cloud_download : Icons.fitness_center,
         color: workout.isImported ? Colors.blue : Colors.green,
       ),
-      title: Text("${workout.count} PushUps"),
+      title: Text('${workout.count} ${context.t('pushups')}'),
       subtitle: Text(
-        "${workout.date.day}/${workout.date.month} - ${workout.avgRpm.toStringAsFixed(1)} RPM",
+        '${workout.date.day}/${workout.date.month}'
+        ' – ${workout.avgRpm.toStringAsFixed(1)} ${context.t('rpm')}',
       ),
       trailing: workout.isVerified
-          ? Icon(Icons.check_circle, color: Colors.green)
-          : Icon(Icons.warning, color: Colors.amber), // Fact-check visual
+          ? const Icon(Icons.check_circle, color: Colors.green)
+          : const Icon(Icons.warning, color: Colors.amber),
     );
   }
 }
