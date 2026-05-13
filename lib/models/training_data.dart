@@ -165,7 +165,7 @@ class TrainingData {
   /// Recommends the unit whose max set is the smallest value above [practiceReps].
   /// Falls back to the first unit if none qualifies.
   static String recommendUnit(int practiceReps, String difficulty) {
-    String best = allUnitIds.first;
+    String best = allUnitIds.last; // fallback: highest level when reps exceed all maxima
     int bestGap = 0x7fffffff;
     for (final id in allUnitIds) {
       final max = maxRepsForUnit(id, difficulty);

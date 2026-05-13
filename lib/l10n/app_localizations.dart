@@ -124,6 +124,11 @@ class AppLocalizations {
       'sensitivity_high': 'Hoch',
       'sensitivity_medium': 'Mittel',
       'sensitivity_low': 'Niedrig',
+      // ── Practice recommendation ───────────────────────────────────────────
+      'practice_rec_title': 'Level-Empfehlung',
+      'practice_rec_body':
+          'Du hast {n} Wdh. absolviert.\n\nEmpfehlung: Level {level} ({diff})\nSätze: {reps}',
+      'skip': 'ÜBERSPRINGEN',
       // ── Notifications ─────────────────────────────────────────────────────
       'notifications': 'Benachrichtigungen',
       'daily_reminder': 'Tägliche Erinnerung',
@@ -250,6 +255,11 @@ class AppLocalizations {
       'sensitivity_high': 'High',
       'sensitivity_medium': 'Medium',
       'sensitivity_low': 'Low',
+      // ── Practice recommendation ───────────────────────────────────────────
+      'practice_rec_title': 'Level Recommendation',
+      'practice_rec_body':
+          'You completed {n} reps.\n\nRecommended: Level {level} ({diff})\nSets: {reps}',
+      'skip': 'SKIP',
       // ── Notifications ─────────────────────────────────────────────────────
       'notifications': 'Notifications',
       'daily_reminder': 'Daily Reminder',

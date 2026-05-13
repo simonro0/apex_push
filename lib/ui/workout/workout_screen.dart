@@ -10,6 +10,7 @@ import '../../logic/audio_service.dart';
 import '../../logic/settings_provider.dart';
 import '../../logic/workout_provider.dart';
 import '../../models/training_data.dart';
+import '../../models/workout.dart';
 import '../session_detail_screen.dart';
 
 class WorkoutScreen extends StatefulWidget {
@@ -154,21 +155,30 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final workout = await provider.saveWorkout(isFreeTraining: isFree);
     if (!mounted) return;
 
-    if (!isFree && splitsCopy.isNotEmpty) {
-      await Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SessionDetailScreen(
-            workout:    workout,
-            splits:     splitsCopy,
-            targetReps: targetRepsCopy,
-          ),
+    // ── Show session detail ──────────────────────────────────────────────────
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SessionDetailScreen(
+          workout:    workout,
+          splits:     splitsCopy,
+          targetReps: targetRepsCopy,
         ),
-      );
-      if (!mounted) return;
-    }
+      ),
+    );
+    if (!mounted) return;
 
-    if (!isFree) {
+    // ── Post-training flow ───────────────────────────────────────────────────
+    if (isFree) {
+      final difficulty = provider.activeProgram.difficulty;
+      final recommended = TrainingData.recommendUnit(workout.count, difficulty);
+      final accepted = await _showPracticeRecommendationDialog(
+          context, workout.count, recommended, difficulty);
+      if (accepted == true && mounted) {
+        await provider.saveActiveProgram(
+            ActiveProgram(unitId: recommended, difficulty: difficulty));
+      }
+    } else {
       final direction = await _showFeedbackDialog(context);
       if (direction == null || !mounted) return;
 
@@ -178,8 +188,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       if (direction != 'keep') {
         await _showLevelChangedDialog(context, provider);
       }
-      if (!mounted) return;
     }
+    if (!mounted) return;
 
     Navigator.pop(context);
   }
@@ -606,6 +616,36 @@ Future<String?> _showFeedbackDialog(BuildContext context) =>
         ],
       ),
     );
+
+Future<bool?> _showPracticeRecommendationDialog(
+    BuildContext context, int reps, String unitId, String difficulty) {
+  final repsForLevel = TrainingData.getReps(unitId, difficulty);
+  return showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => AlertDialog(
+      title: Text(context.tr('practice_rec_title')),
+      content: Text(
+        context.tp('practice_rec_body', {
+          'n':    '$reps',
+          'level': unitId,
+          'diff':  difficulty,
+          'reps':  repsForLevel.join(' – '),
+        }),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(context.tr('skip')),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(context.tr('apply')),
+        ),
+      ],
+    ),
+  );
+}
 
 Future<void> _showLevelChangedDialog(
     BuildContext context, WorkoutProvider provider) async {
