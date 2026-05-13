@@ -57,20 +57,20 @@ class _RecordScreenState extends State<RecordScreen> {
   // ── Chart builders ─────────────────────────────────────────────────────────
 
   List<BarChartGroupData> _buildBarGroups(
-      Map<int, int> data, int days, double Function(int) value) {
+      Map<int, int> data, int days, double Function(int) value, double barWidth) {
     final primaryColor = Theme.of(context).colorScheme.primary;
     return List.generate(days, (i) {
       final day = i + 1;
       return BarChartGroupData(
-        x: day,
+        x: i,
         barRods: [
           BarChartRodData(
             toY: value(data[day] ?? 0),
             color: (data[day] ?? 0) > 0
                 ? primaryColor
                 : primaryColor.withValues(alpha: 0.08),
-            width: 7,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            width: barWidth,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
           ),
         ],
       );
@@ -80,14 +80,15 @@ class _RecordScreenState extends State<RecordScreen> {
   List<FlSpot> _buildSpots(Map<int, int> data, double Function(int) value) {
     return data.entries
         .where((e) => e.value > 0)
-        .map((e) => FlSpot(e.key.toDouble(), value(e.value)))
+        .map((e) => FlSpot((e.key - 1).toDouble(), value(e.value)))
         .toList()
       ..sort((a, b) => a.x.compareTo(b.x));
   }
 
   // ── Tap handler ────────────────────────────────────────────────────────────
 
-  void _onBarTap(int day) {
+  void _onBarTap(int x) {
+    final day = x + 1;
     final sessions = widget.history.where((w) =>
         w.date.year == _month.year &&
         w.date.month == _month.month &&
@@ -122,8 +123,7 @@ class _RecordScreenState extends State<RecordScreen> {
             .map(valueFor)
             .reduce((a, b) => a > b ? a : b) * 1.15;
 
-    final barGroups = _buildBarGroups(data, days, valueFor);
-    final spots     = _buildSpots(data, valueFor);
+    final spots = _buildSpots(data, valueFor);
 
     return Scaffold(
       appBar: AppBar(title: Text(context.t('record'))),
@@ -176,14 +176,20 @@ class _RecordScreenState extends State<RecordScreen> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 16, 0),
-              child: _ComboChart(
-                barGroups:  barGroups,
-                spots:      spots,
-                days:       days,
-                maxY:       maxVal,
-                onBarTap:   _onBarTap,
-                yAxisLabel: _showCalories ? 'kcal' : '',
-              ),
+              child: LayoutBuilder(builder: (context, constraints) {
+                const leftReserved = 40.0;
+                final bw = ((constraints.maxWidth - leftReserved) / days)
+                    .clamp(1.0, 14.0);
+                final barGroups = _buildBarGroups(data, days, valueFor, bw);
+                return _ComboChart(
+                  barGroups:  barGroups,
+                  spots:      spots,
+                  days:       days,
+                  maxY:       maxVal,
+                  onBarTap:   _onBarTap,
+                  yAxisLabel: _showCalories ? 'kcal' : '',
+                );
+              }),
             ),
           ),
           const SizedBox(height: 12),
@@ -253,10 +259,10 @@ class _ComboChart extends StatelessWidget {
         sideTitles: SideTitles(
           showTitles: true,
           reservedSize: 22,
-          interval: 5,
+          interval: 1,
           getTitlesWidget: (value, meta) {
-            final day = value.toInt();
-            if (day == 0 || day % 5 != 0) return const SizedBox.shrink();
+            final day = value.toInt() + 1;
+            if (day % 5 != 0 || day > days) return const SizedBox.shrink();
             return Text(
               '$day',
               style: const TextStyle(fontSize: 10, color: Colors.grey),
@@ -278,6 +284,7 @@ class _ComboChart extends StatelessWidget {
             borderData:   FlBorderData(show: false),
             titlesData:   sharedTitles,
             alignment:    BarChartAlignment.spaceBetween,
+            groupsSpace:  0,
             barTouchData: BarTouchData(
               touchCallback: (FlTouchEvent event, BarTouchResponse? response) {
                 if (!event.isInterestedForInteractions) return;
@@ -318,8 +325,8 @@ class _ComboChart extends StatelessWidget {
                     belowBarData: BarAreaData(show: false),
                   ),
                 ],
-                minX:       1,
-                maxX:       days.toDouble(),
+                minX:       -0.5,
+                maxX:       days - 0.5,
                 minY:       0,
                 maxY:       maxY,
                 titlesData: const FlTitlesData(show: false),
