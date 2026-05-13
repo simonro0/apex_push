@@ -126,6 +126,9 @@ class AppLocalizations {
       'sensitivity_low': 'Niedrig',
       // ── Sensor / session stats ────────────────────────────────────────────
       'sensor_verified': 'Verifiziert',
+      // ── Weekly overview ───────────────────────────────────────────────────
+      'week_overview': 'Diese Woche',
+      'week_total':    '{n} Wdh.',
       // ── Burnout set ───────────────────────────────────────────────────────
       'burnout':      'BURNOUT',
       'burnout_chip': 'max',
@@ -263,6 +266,9 @@ class AppLocalizations {
       'sensitivity_low': 'Low',
       // ── Sensor / session stats ────────────────────────────────────────────
       'sensor_verified': 'Verified',
+      // ── Weekly overview ───────────────────────────────────────────────────
+      'week_overview': 'This Week',
+      'week_total':    '{n} reps',
       // ── Burnout set ───────────────────────────────────────────────────────
       'burnout':      'BURNOUT',
       'burnout_chip': 'max',

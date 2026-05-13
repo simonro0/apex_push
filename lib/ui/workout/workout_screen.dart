@@ -158,6 +158,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final workout      = await provider.saveWorkout(isFreeTraining: isFree);
     if (!mounted) return;
 
+    // Capture history after save (includes the session just recorded).
+    final historyCopy = List<Workout>.from(provider.history);
+
     // ── Show session detail ──────────────────────────────────────────────────
     await Navigator.push<void>(
       context,
@@ -167,6 +170,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           splits:       splitsCopy,
           targetReps:   targetRepsCopy,
           verifiedReps: verifiedReps,
+          history:      historyCopy,
         ),
       ),
     );

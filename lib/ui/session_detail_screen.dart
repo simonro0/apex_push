@@ -5,11 +5,16 @@ import '../l10n/app_localizations.dart';
 import '../logic/settings_provider.dart';
 import '../models/workout.dart';
 
+// Weekday abbreviations used by _WeeklyCard.
+const _weekdaysDe = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const _weekdaysEn = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
 class SessionDetailScreen extends StatelessWidget {
-  final Workout   workout;
-  final List<int> splits;
-  final List<int> targetReps;
-  final int?      verifiedReps;
+  final Workout        workout;
+  final List<int>      splits;
+  final List<int>      targetReps;
+  final int?           verifiedReps;
+  final List<Workout>? history;
 
   const SessionDetailScreen({
     super.key,
@@ -17,6 +22,7 @@ class SessionDetailScreen extends StatelessWidget {
     this.splits       = const [],
     this.targetReps   = const [],
     this.verifiedReps,
+    this.history,
   });
 
   @override
@@ -68,6 +74,10 @@ class SessionDetailScreen extends StatelessWidget {
                 ok:      ok,
               );
             }),
+          ],
+          if (history != null) ...[
+            const SizedBox(height: 20),
+            _WeeklyCard(history: history!, baseDate: workout.date),
           ],
         ],
       ),
@@ -209,4 +219,117 @@ class _SetRow extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Weekly overview card ──────────────────────────────────────────────────────
+
+class _WeeklyCard extends StatelessWidget {
+  final List<Workout> history;
+  final DateTime      baseDate;
+
+  const _WeeklyCard({required this.history, required this.baseDate});
+
+  @override
+  Widget build(BuildContext context) {
+    final today  = DateTime(baseDate.year, baseDate.month, baseDate.day);
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+
+    // Aggregate reps by day-of-week offset (0 = Monday)
+    final daily = <int, int>{};
+    for (final w in history) {
+      final d    = DateTime(w.date.year, w.date.month, w.date.day);
+      final diff = d.difference(monday).inDays;
+      if (diff >= 0 && diff < 7) {
+        daily[diff] = (daily[diff] ?? 0) + w.count;
+      }
+    }
+    final weekTotal  = daily.values.fold(0, (s, v) => s + v);
+    final todayOffset = today.difference(monday).inDays;
+
+    final locale = context.watch<SettingsProvider>().locale;
+    final labels = locale == 'de' ? _weekdaysDe : _weekdaysEn;
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  context.t('week_overview'),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                Text(
+                  context.tp('week_total', {'n': '$weekTotal'}),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(7, (i) {
+                final reps    = daily[i] ?? 0;
+                final trained = reps > 0;
+                final isToday = i == todayOffset;
+
+                return Column(
+                  children: [
+                    Text(
+                      labels[i],
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isToday ? primary : Colors.grey,
+                        fontWeight:
+                            isToday ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: trained
+                            ? primary.withValues(alpha: 0.85)
+                            : Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                        border: isToday
+                            ? Border.all(color: primary, width: 2)
+                            : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: trained
+                          ? Text(
+                              _compact(reps),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onPrimary,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _compact(int n) =>
+      n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : '$n';
 }
