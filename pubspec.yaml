@@ -39,6 +39,8 @@ dependencies:
   sensors_plus: any
   sqflite: any
   shared_preferences: any
+  archive: any
+  path: any
 
 
   # The following adds the Cupertino Icons font to your application.

@@ -1,113 +1,146 @@
-// logic/workout_provider.dart
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/database_helper.dart';
+import '../data/puud_import_service.dart';
 import '../data/sensor_service.dart';
+import '../models/training_data.dart';
 import '../models/workout.dart';
 
 class WorkoutProvider with ChangeNotifier {
-  final SensorService _sensors = SensorService();
+  final SensorService _sensors;
+
   List<Workout> _history = [];
-  final TrainingPlan _currentPlan = TrainingPlan(dailyTarget: 20);
+  ActiveProgram _activeProgram = const ActiveProgram(unitId: '1-1', difficulty: 'Easy');
 
   int _currentSessionCount = 0;
   DateTime? _startTime;
-  bool _lastRepVerified = true;
+  bool _lastRepVerified = false;
+
+  WorkoutProvider() : _sensors = SensorService();
+
+  // ── Getters ────────────────────────────────────────────────────────────────
 
   int get currentCount => _currentSessionCount;
   List<Workout> get history => _history;
-  TrainingPlan get plan => _currentPlan;
+  ActiveProgram get activeProgram => _activeProgram;
+
+  /// Pre-computed stats derived from history.
+  int get bestDayCount {
+    if (_history.isEmpty) return 0;
+    final totals = _dailyTotals();
+    return totals.values.reduce((a, b) => a > b ? a : b);
+  }
+
+  int get totalCount => _history.fold(0, (s, w) => s + w.count);
+
+  double get averageDailyCount {
+    final totals = _dailyTotals();
+    if (totals.isEmpty) return 0;
+    final sum = totals.values.fold(0, (s, v) => s + v);
+    return sum / totals.length;
+  }
+
+  Map<String, int> _dailyTotals() {
+    final map = <String, int>{};
+    for (final w in _history) {
+      final key = '${w.date.year}-${w.date.month}-${w.date.day}';
+      map[key] = (map[key] ?? 0) + w.count;
+    }
+    return map;
+  }
+
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
+
+  @override
+  void dispose() {
+    _sensors.dispose();
+    super.dispose();
+  }
+
+  // ── Active programme ───────────────────────────────────────────────────────
+
+  Future<void> loadActiveProgram() async {
+    final prefs = await SharedPreferences.getInstance();
+    final unitId    = prefs.getString('active_unit_id')    ?? '1-1';
+    final difficulty = prefs.getString('active_difficulty') ?? 'Easy';
+    _activeProgram = ActiveProgram(unitId: unitId, difficulty: difficulty);
+    notifyListeners();
+  }
+
+  Future<void> saveActiveProgram(ActiveProgram program) async {
+    _activeProgram = program;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('active_unit_id',    program.unitId);
+    await prefs.setString('active_difficulty', program.difficulty);
+    notifyListeners();
+  }
+
+  /// Moves the active programme one step up (too easy) or down (too hard).
+  /// [direction] must be 'up', 'down', or 'keep'.
+  Future<void> stepDifficulty(String direction) async {
+    if (direction == 'keep') return;
+    final step = direction == 'up'
+        ? TrainingData.stepUp(_activeProgram.unitId, _activeProgram.difficulty)
+        : TrainingData.stepDown(_activeProgram.unitId, _activeProgram.difficulty);
+    await saveActiveProgram(ActiveProgram(unitId: step.unitId, difficulty: step.difficulty));
+  }
+
+  // ── Workout session ────────────────────────────────────────────────────────
 
   void startWorkout() {
     _currentSessionCount = 0;
+    _lastRepVerified = false;
     _startTime = DateTime.now();
     _sensors.init();
     notifyListeners();
   }
 
   void incrementCount() {
-    bool verified = _sensors.verifyPushUp();
+    _lastRepVerified = _sensors.verifyPushUp();
     _currentSessionCount++;
-    _lastRepVerified = verified; // Fact-checking the rep
     notifyListeners();
   }
 
-  // ADAPTIVE LOGIC
-  void adjustDifficulty(String feedback) {
-    if (feedback == "Too Easy") {
-      _currentPlan.dailyTarget = (_currentPlan.dailyTarget * 1.2).round();
-    } else if (feedback == "Too Hard") {
-      _currentPlan.dailyTarget = (_currentPlan.dailyTarget * 0.8).round();
-    }
-    // "Just Right" stays the same
-    notifyListeners();
-  }
-
-  void updatePlanManual(int newTarget) {
-    _currentPlan.dailyTarget = newTarget;
-    notifyListeners();
-  }
-
-  Future<void> saveWorkout() async {
+  Future<void> saveWorkout({bool isFreeTraining = false}) async {
     if (_startTime == null) return;
-
     final duration = DateTime.now().difference(_startTime!).inSeconds;
-    double rpm = duration > 0 ? (_currentSessionCount / (duration / 60)) : 0;
+    final rpm = duration > 0 ? _currentSessionCount / (duration / 60.0) : 0.0;
 
-    final newWorkout = Workout(
+    final workout = Workout(
       date: DateTime.now(),
       count: _currentSessionCount,
       durationSeconds: duration,
       avgRpm: rpm,
       isVerified: _lastRepVerified,
-      isImported: false,
+      isFreeTraining: isFreeTraining,
+      levelId:    isFreeTraining ? null : _activeProgram.unitId,
+      difficulty: isFreeTraining ? null : _activeProgram.difficulty,
     );
 
-    // Persist to SQLite
-    await DatabaseHelper.instance.createWorkout(newWorkout);
-
-    // Refresh local list
+    await DatabaseHelper.instance.createWorkout(workout);
     await loadHistoryFromDb();
   }
 
-  // Persists the new target to local storage so it survives app restarts
-  Future<void> saveNewPlan(int newReps) async {
-    _currentPlan.dailyTarget = newReps;
+  // ── Data management ────────────────────────────────────────────────────────
 
-    // Use SharedPreferences for simple settings like the Daily Target
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('daily_target', newReps);
-
-    notifyListeners();
-  }
-
-  // Used by the CSV Import logic to save data in bulk efficiently
-  Future<void> saveMultipleWorkouts(List<Workout> importedWorkouts) async {
-    final db = await DatabaseHelper.instance.database;
-    final batch = db.batch();
-
-    for (var workout in importedWorkouts) {
-      batch.insert('workouts', workout.toMap());
-    }
-
-    await batch.commit(noResult: true); // noResult: true makes it faster
-
-    // Refresh local history list from DB
-    await loadHistoryFromDb();
-    notifyListeners();
-  }
-
-  // Helper to load plan on app startup
-  Future<void> loadPlan() async {
-    final prefs = await SharedPreferences.getInstance();
-    _currentPlan.dailyTarget = prefs.getInt('daily_target') ?? 20;
-    notifyListeners();
-  }
-
-  // This is called when the app starts and after imports
   Future<void> loadHistoryFromDb() async {
     _history = await DatabaseHelper.instance.readAllWorkouts();
     notifyListeners();
+  }
+
+  Future<void> saveMultipleWorkouts(List<Workout> workouts) async {
+    await DatabaseHelper.instance.batchInsert(workouts);
+    await loadHistoryFromDb();
+  }
+
+  /// Imports from a .puud backup file. Returns the number of imported workouts,
+  /// or -1 if the user cancelled the file picker.
+  Future<int> importFromPuud() async {
+    final workouts = await PuudImportService.importFromPuud();
+    if (workouts == null) return -1;
+    if (workouts.isEmpty) return 0;
+    await saveMultipleWorkouts(workouts);
+    return workouts.length;
   }
 }

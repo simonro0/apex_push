@@ -2,122 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../logic/workout_provider.dart';
+import '../../models/training_data.dart';
 
 class WorkoutScreen extends StatefulWidget {
+  /// When true the session is a free practice round (not bound to a level).
+  final bool isFreeTraining;
+
+  const WorkoutScreen({super.key, this.isFreeTraining = false});
+
   @override
-  _WorkoutScreenState createState() => _WorkoutScreenState();
+  State<WorkoutScreen> createState() => _WorkoutScreenState();
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   void initState() {
     super.initState();
-    // Start sensors and reset counter when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<WorkoutProvider>().startWorkout();
     });
   }
 
-  // Helper to show the feedback dialog after finishing
-  void _finishWorkout(WorkoutProvider provider) async {
-    // 1. Save the workout data
-    await provider.saveWorkout();
+  Future<void> _finish(WorkoutProvider provider) async {
+    await provider.saveWorkout(isFreeTraining: widget.isFreeTraining);
 
-    // 2. Ask for feedback to trigger adaptive logic
-    String? feedback = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text("Workout Complete!"),
-        content: Text("How did the intensity feel?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, "Too Hard"),
-            child: Text("TOUGH"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, "Just Right"),
-            child: Text("PERFECT"),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, "Too Easy"),
-            child: Text("EASY"),
-          ),
-        ],
-      ),
-    );
+    if (!mounted) return;
 
-    if (feedback != null) {
-      // 3. Calculate new target
-      int oldTarget = provider.plan.dailyTarget;
-      provider.adjustDifficulty(feedback);
-      int newTarget = provider.plan.dailyTarget;
+    final direction = await _showFeedbackDialog(context);
+    if (direction == null || !mounted) return;
 
-      // 4. If target changed, show the "Accept/Decline" Preview
-      if (oldTarget != newTarget) {
-        _showAdjustmentPreview(context, oldTarget, newTarget);
-      } else {
-        Navigator.pop(context); // Go back to Dashboard
-      }
+    await provider.stepDifficulty(direction);
+    if (!mounted) return;
+
+    if (direction != 'keep') {
+      await _showLevelChangedDialog(context, provider);
     }
-  }
 
-  void _showAdjustmentPreview(
-    BuildContext context,
-    int oldTarget,
-    int newTarget,
-  ) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text("Plan Evolution"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text("Based on your feedback, we suggest adjusting your goal:"),
-            SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  "$oldTarget",
-                  style: TextStyle(fontSize: 20, color: Colors.grey),
-                ),
-                Icon(Icons.arrow_right_alt, size: 40),
-                Text(
-                  "$newTarget",
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // Decline: Revert the plan in provider
-              context.read<WorkoutProvider>().updatePlanManual(oldTarget);
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: Text("KEEP OLD"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              // Call the missing function to persist the plan
-              await context.read<WorkoutProvider>().saveNewPlan(newTarget);
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: Text("ACCEPT NEW"),
-          ),
-        ],
-      ),
-    );
+    if (!mounted) return;
+    Navigator.pop(context);
   }
 
   @override
@@ -125,24 +47,23 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final provider = context.watch<WorkoutProvider>();
 
     return Scaffold(
-      backgroundColor: Colors.black, // High contrast for workout
+      backgroundColor: Colors.black,
       body: GestureDetector(
-        onTap: () => provider.incrementCount(),
+        onTap: provider.incrementCount,
         behavior: HitTestBehavior.opaque,
         child: Stack(
           children: [
-            // The "Pad" feedback
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    "TAP WITH NOSE / CHEST",
-                    style: TextStyle(color: Colors.white54),
+                    widget.isFreeTraining ? 'FREIES TRAINING' : 'TAP WITH NOSE / CHEST',
+                    style: const TextStyle(color: Colors.white54, fontSize: 16),
                   ),
                   Text(
-                    "${provider.currentCount}",
-                    style: TextStyle(
+                    '${provider.currentCount}',
+                    style: const TextStyle(
                       fontSize: 180,
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -151,7 +72,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ],
               ),
             ),
-            // Finish Button
             Positioned(
               bottom: 50,
               left: 50,
@@ -159,11 +79,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
-                  padding: EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(20),
                 ),
-                onPressed: () => _finishWorkout(provider),
-                child: Text(
-                  "FINISH SESSION",
+                onPressed: () => _finish(provider),
+                child: const Text(
+                  'FINISH SESSION',
                   style: TextStyle(fontSize: 20, color: Colors.white),
                 ),
               ),
@@ -173,4 +93,50 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ),
     );
   }
+}
+
+Future<String?> _showFeedbackDialog(BuildContext context) =>
+    showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text('Training beendet'),
+        content: const Text('Wie war die Schwierigkeit?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'down'),
+            child: const Text('ZU SCHWER'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'keep'),
+            child: const Text('PASST SO'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, 'up'),
+            child: const Text('ZU LEICHT'),
+          ),
+        ],
+      ),
+    );
+
+Future<void> _showLevelChangedDialog(
+    BuildContext context, WorkoutProvider provider) async {
+  final p = provider.activeProgram;
+  final reps = TrainingData.getReps(p.unitId, p.difficulty);
+  await showDialog<void>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Level angepasst'),
+      content: Text(
+        'Neues Level: ${p.unitId} (${p.difficulty})\n'
+        'Sätze: ${reps.join(' – ')}',
+      ),
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('OK'),
+        ),
+      ],
+    ),
+  );
 }

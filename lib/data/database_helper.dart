@@ -1,72 +1,75 @@
-// data/database_helper.dart
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/workout.dart';
 
 class DatabaseHelper {
-  // Singleton pattern
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
 
   DatabaseHelper._init();
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('workouts.db');
+    _database ??= await _initDB('workouts.db');
     return _database!;
   }
 
   Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
-
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    final path = join(await getDatabasesPath(), filePath);
+    return openDatabase(
+      path,
+      version: 2,
+      onCreate: _createDB,
+      onUpgrade: _upgradeDB,
+    );
   }
 
-  Future _createDB(Database db, int version) async {
-    // We use INTEGER for booleans (0 = false, 1 = true)
+  Future<void> _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE workouts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT NOT NULL,
-        count INTEGER NOT NULL,
-        duration INTEGER NOT NULL,
-        rpm REAL NOT NULL,
-        isImported INTEGER NOT NULL,
-        isVerified INTEGER NOT NULL
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        date          TEXT    NOT NULL,
+        count         INTEGER NOT NULL,
+        duration      INTEGER NOT NULL,
+        rpm           REAL    NOT NULL,
+        isImported    INTEGER NOT NULL DEFAULT 0,
+        isVerified    INTEGER NOT NULL DEFAULT 0,
+        isFreeTraining INTEGER NOT NULL DEFAULT 0,
+        levelId       TEXT,
+        difficulty    TEXT
       )
     ''');
   }
 
-  // Insert a single workout
-  Future<int> createWorkout(Workout workout) async {
-    final db = await instance.database;
-    return await db.insert('workouts', workout.toMap());
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE workouts ADD COLUMN isFreeTraining INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute('ALTER TABLE workouts ADD COLUMN levelId TEXT');
+      await db.execute('ALTER TABLE workouts ADD COLUMN difficulty TEXT');
+    }
   }
 
-  // Fetch all workouts sorted by date descending
+  Future<int> createWorkout(Workout workout) async {
+    final db = await instance.database;
+    return db.insert('workouts', workout.toMap());
+  }
+
   Future<List<Workout>> readAllWorkouts() async {
     final db = await instance.database;
     final result = await db.query('workouts', orderBy: 'date DESC');
-
-    return result
-        .map(
-          (json) => Workout(
-            id: json['id'] as int,
-            date: DateTime.parse(json['date'] as String),
-            count: json['count'] as int,
-            durationSeconds: json['duration'] as int,
-            avgRpm: json['rpm'] as double,
-            isImported: json['isImported'] == 1,
-            isVerified: json['isVerified'] == 1,
-          ),
-        )
-        .toList();
+    return result.map(Workout.fromMap).toList();
   }
 
-  Future<void> close() async {
+  Future<void> batchInsert(List<Workout> workouts) async {
     final db = await instance.database;
-    db.close();
+    final batch = db.batch();
+    for (final w in workouts) {
+      batch.insert('workouts', w.toMap());
+    }
+    await batch.commit(noResult: true);
   }
+
+  Future<void> close() async => (await instance.database).close();
 }
