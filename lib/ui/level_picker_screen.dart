@@ -24,6 +24,13 @@ class _LevelPickerScreenState extends State<LevelPickerScreen> {
     _selectedDifficulty = widget.current.difficulty;
   }
 
+  /// Show levels 1 through at least 8, plus 2 ahead of the current level.
+  int get _levelCount {
+    final currentLevel =
+        int.tryParse(widget.current.unitId.split('-').first) ?? 1;
+    return (currentLevel + 2).clamp(8, 20);
+  }
+
   void _select(String unitId, String difficulty) {
     setState(() {
       _selectedUnit       = unitId;
@@ -37,7 +44,7 @@ class _LevelPickerScreenState extends State<LevelPickerScreen> {
       appBar: AppBar(title: Text(context.t('select_level'))),
       body: ListView.builder(
         padding: const EdgeInsets.only(bottom: 100),
-        itemCount: 8,
+        itemCount: _levelCount,
         itemBuilder: (ctx, levelIdx) {
           final level = levelIdx + 1;
           return _LevelSection(

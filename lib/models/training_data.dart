@@ -11,8 +11,8 @@ class TrainingData {
 
   static const List<String> difficulties = ['Easy', 'Normal', 'Hard'];
 
-  /// All unit IDs in ascending program order.
-  static const List<String> allUnitIds = [
+  /// All unit IDs in ascending program order, including generated levels 9–20.
+  static final List<String> allUnitIds = [
     '1-1', '1-2', '1-3',
     '2-1', '2-2', '2-3',
     '3-1', '3-2', '3-3',
@@ -21,6 +21,8 @@ class TrainingData {
     '6-1', '6-2', '6-3',
     '7-1', '7-2', '7-3',
     '8-1', '8-2', '8-3',
+    for (var l = 9; l <= 20; l++)
+      for (var u = 1; u <= 3; u++) '$l-$u',
   ];
 
   /// Reps per set for all 72 hardcoded programmes (8 levels × 3 units × 3 difficulties).
@@ -149,8 +151,22 @@ class TrainingData {
 
   // ── Accessors ──────────────────────────────────────────────────────────────
 
-  static List<int> getReps(String unitId, String difficulty) =>
-      programs[unitId]![difficulty]!;
+  static List<int> getReps(String unitId, String difficulty) {
+    final byUnit = programs[unitId];
+    if (byUnit != null) return byUnit[difficulty]!;
+    return _generateReps(unitId, difficulty);
+  }
+
+  /// Generates reps for level 9+ by scaling the corresponding level-8 unit
+  /// by 15 % per level beyond 8.
+  static List<int> _generateReps(String unitId, String difficulty) {
+    final parts = unitId.split('-');
+    final level = int.parse(parts[0]);
+    final unit  = parts[1]; // '1', '2', or '3'
+    final base  = programs['8-$unit']![difficulty]!;
+    final scale = 1.0 + (level - 8) * 0.15;
+    return base.map((r) => (r * scale).round()).toList();
+  }
 
   static int getRestSeconds(String difficulty) => restSeconds[difficulty]!;
 
@@ -182,14 +198,29 @@ class TrainingData {
 
   static String? nextUnit(String unitId) {
     final idx = allUnitIds.indexOf(unitId);
-    if (idx < 0 || idx >= allUnitIds.length - 1) return null;
-    return allUnitIds[idx + 1];
+    if (idx >= 0) return idx < allUnitIds.length - 1 ? allUnitIds[idx + 1] : null;
+    // Fallback for IDs beyond the pre-generated range (level > 20).
+    final parts = unitId.split('-');
+    if (parts.length != 2) return null;
+    final level = int.tryParse(parts[0]);
+    final unit  = int.tryParse(parts[1]);
+    if (level == null || unit == null) return null;
+    return unit < 3 ? '$level-${unit + 1}' : '${level + 1}-1';
   }
 
   static String? previousUnit(String unitId) {
     final idx = allUnitIds.indexOf(unitId);
-    if (idx <= 0) return null;
-    return allUnitIds[idx - 1];
+    if (idx > 0)  return allUnitIds[idx - 1];
+    if (idx == 0) return null;
+    // Fallback for IDs beyond the pre-generated range (level > 20).
+    final parts = unitId.split('-');
+    if (parts.length != 2) return null;
+    final level = int.tryParse(parts[0]);
+    final unit  = int.tryParse(parts[1]);
+    if (level == null || unit == null) return null;
+    if (unit > 1) return '$level-${unit - 1}';
+    if (level <= 1) return null;
+    return '${level - 1}-3';
   }
 
   static String? nextDifficulty(String difficulty) {
