@@ -117,32 +117,41 @@ Zwei Wege zum Einstieg in ein Level:
 
 ### 2.1 Dashboard (Hauptscreen)
 
+Layout exakt nach Original-App (Screenshot):
+
 ```
-┌─────────────────────────────────────────┐
-│  [Statistik-Zusammenfassung top-left]   │  🔔  ⚙️ │
-│                                         │
-│  [TRAINING]   [PRACTICE]   [RECORD]     │
-│                                         │
-│  ... Verlaufsliste / Wochenüberblick    │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  Best Record  │  Total   │  Average    🔔 ⚙️ │
+│  303/d        │  50000   │  25/d             │
+├─────────────────────────────────────────────┤
+│                                             │
+│         [Grafik / Logo / Illustration]      │
+│                                             │
+├─────────────────────────────────────────────┤
+│          [      TRAINING      ]             │
+│  [ PRACTICE ]          [ RECORD ]           │
+└─────────────────────────────────────────────┘
 ```
 
-**Statistik-Block (oben links):**
-- Aktuelle Woche / Streak
-- Gesamtwiederholungen
-- Aktuelles Level
+**Statistik-Zeile (oben links, 3 Felder):**
+
+| Feld           | Wert            | Berechnung |
+|----------------|-----------------|------------|
+| Best Record    | z.B. `303/d`    | Höchste Tages-Gesamtwiederholungen in der Historie |
+| Total          | z.B. `50000`    | Alle-Zeit-Summe aller Wiederholungen |
+| Average        | z.B. `25/d`     | Durchschnitt Wiederholungen pro Trainingstag |
 
 **Icons oben rechts:**
-- 🔔 → Benachrichtigungseinstellungen
-- ⚙️ → App-Einstellungen
+- 🔔 → Benachrichtigungseinstellungen (eigener Screen)
+- ⚙️ → App-Einstellungen (eigener Screen)
 
 ### 2.2 Navigation
 
 | Button       | Aktion |
 |--------------|--------|
-| **Training** | Heutiges Training fortsetzen. Falls noch kein Training für heute: Levelauswahl anzeigen (oder freie Einschätzungsrunde anbieten) |
+| **Training** | Heutiges Training fortsetzen. Falls noch kein Training für heute: Levelauswahl anzeigen oder freie Einschätzungsrunde anbieten |
 | **Practice** | Jederzeit freie Übungsrunde starten (ohne Stufenbindung) |
-| **Record**   | Wochenansicht mit grafischer Darstellung der Trainingstage |
+| **Record**   | **Monatsansicht** mit kombiniertem Balken- + Linienchart (siehe §4) |
 
 ---
 
@@ -187,22 +196,47 @@ Dashboard
 
 ## 4. Statistik & Graphen
 
-### 4.1 Wochenansicht (Record-Tab)
+### 4.1 Monatsansicht (Record-Tab)
 
-- 7 Tage als Balken- oder Kreisdiagramm
-- Je Tag: absolvierte Reps vs. Ziel
-- Klick auf einen Tag → Detailansicht dieser Session
+Layout nach Original-App (Screenshot):
+
+```
+◄  2023-01  ►       [Pushups]  [Calorie]
+
+  180 ─────────────────────────────────
+  160 │
+  140 │                  ●
+  120 │              ────────────────
+  100 │      ●
+   80 │  ●──●   ●──────
+   60 │●         
+   ...│
+    0 └────────────────────────────────
+       2  4  6  8  10  12  ...  28  30
+
+             [ Home ]
+```
+
+- **Navigation**: Monat per `◄` / `►` wechseln
+- **Tabs**: Pushups (Standard) | Calorie
+- **Diagrammtyp**: kombiniertes Balkendiagramm (Tagessumme als Fläche) + Linienchart (Datenpunkte verbunden)
+- **X-Achse**: Tage des Monats (1–31, nur Trainingstage mit Balken)
+- **Y-Achse**: Anzahl Wiederholungen (automatisch skaliert)
+- **Calorie-Tab**: Kalorienverbrauch je Tag (Berechnungsformel: ~0,5 kcal pro Push-up als Näherung)
+- **Tap auf Datenpunkt/Balken** → Detailansicht dieser Session
+- **„Home"-Button** unten → zurück zum Dashboard
 
 ### 4.2 Session-Detailansicht
 
 Erreichbar aus:
-- Post-Training-Flow (direkt nach Training)
-- Record-Tab (historisch)
+- Post-Training-Flow (direkt nach Training, automatisch)
+- Record-Tab (historisch, per Tap auf Balken)
 
 Inhalt:
-- Satzweise Auflistung (Ziel vs. Erreicht)
-- Timing pro Satz
-- Bewegungsqualitäts-Graph (sofern Sensordaten vorhanden, siehe Abschnitt 5)
+- Datum + Level + Gesamtreps
+- Satzweise Auflistung: Satz N → Ziel: X | Erreicht: Y | Zeit: Z s
+- Bewegungsqualitäts-Graph (sofern Sensordaten vorhanden, siehe §5)
+- Kalorienverbrauch der Session
 
 ---
 
@@ -300,19 +334,42 @@ CREATE TABLE PushUpsRecord (
 
 ## 8. Benachrichtigungen & Einstellungen
 
-### 8.1 Benachrichtigungen (🔔)
+### 8.1 Benachrichtigungsscreen (🔔)
 
-- Tägliche Erinnerung zur konfigurierbaren Uhrzeit
-- An/Aus, Uhrzeit, Klingelton/Vibration
-- (Entspricht `alarm_settings`-Tabelle im Original-Backup)
+Eigener Screen, erreichbar über Bell-Icon auf dem Dashboard.  
+Entspricht der `alarm_settings`-Tabelle im Original-Backup.
 
-### 8.2 Einstellungen (⚙️)
+| Einstellung              | Typ       | Standard       |
+|--------------------------|-----------|----------------|
+| Notification on/off      | Toggle    | off            |
+| Notify me every N day(s) | Zahl      | 1              |
+| Time                     | Uhrzeit   | 18:00          |
+| Ring tone                | Auswahl   | System-Default |
+| Vibrate                  | Toggle    | off            |
 
-- Ruhezeiten zwischen Sätzen anpassen
-- Sensor-Schwellenwert kalibrieren
-- Theme (Hell/Dunkel)
-- Einheit (Metrisch/Imperial falls relevant)
-- Datenmigration (Import-Button)
+### 8.2 Einstellungsscreen (⚙️)
+
+Eigener Screen nach Original-App-Struktur (Options-Screenshot):
+
+**Push ups Setting**
+| Eintrag               | Funktion |
+|-----------------------|----------|
+| Notification          | → Benachrichtigungsscreen (wie §8.1) |
+| Backup Record         | Daten als `.puud` oder CSV exportieren |
+| Restore Record        | Import aus `.puud`-Datei oder CSV |
+| Clear All Record      | Alle Trainingsdaten löschen (mit Bestätigung) |
+
+**App Setting** *(ApexPush-eigene Erweiterungen)*
+| Eintrag               | Funktion |
+|-----------------------|----------|
+| Ruhezeiten            | Standardpausen je Level-Gruppe konfigurieren |
+| Sensor-Kalibrierung   | Beschleunigungsschwellenwert anpassen |
+| Theme                 | Hell / Dunkel |
+
+**About**
+| Eintrag               | Funktion |
+|-----------------------|----------|
+| Version               | App-Version anzeigen |
 
 ---
 
@@ -321,17 +378,19 @@ CREATE TABLE PushUpsRecord (
 | # | Feature | Priorität | Abhängigkeiten |
 |---|---------|-----------|----------------|
 | 1 | `.puud`-Import (Datenmigration) | **HOCH** | – |
-| 2 | Levelstruktur als Datenmodell | **HOCH** | – |
+| 2 | Levelstruktur als Datenmodell (8×3×3 Matrix) | **HOCH** | – |
 | 3 | Satzbasiertes Training + Pausen-Countdown | **HOCH** | #2 |
 | 4 | Einstiegsstufen-Auswahl / Level-Picker | **HOCH** | #2 |
-| 5 | Dashboard (Training / Practice / Record) | **HOCH** | #3 |
+| 5 | Dashboard mit Stats-Zeile + 3 Buttons | **HOCH** | #3 |
 | 6 | Ton pro Wiederholung + Countdown-Töne | **MITTEL** | – |
-| 7 | Post-Training-Flow (Detail → Woche → Anpassung) | **MITTEL** | #3, #4 |
-| 8 | Wochenansicht (Record) | **MITTEL** | #5 |
-| 9 | Erweiterte Sensordaten pro Rep | **MITTEL** | – |
-| 10 | Analyse-Graph | **NIEDRIG** | #9 |
-| 11 | Benachrichtigungen | **NIEDRIG** | – |
-| 12 | CSV-Import/-Export (robuster) | **MITTEL** | – |
+| 7 | Post-Training-Flow (Detail → Monat → Anpassung) | **MITTEL** | #3, #4 |
+| 8 | Monatsansicht (Record) mit Bar+Line-Chart | **MITTEL** | #5 |
+| 9 | Kalorie-Tab im Record-Screen | **NIEDRIG** | #8 |
+| 10 | Erweiterte Sensordaten pro Rep | **MITTEL** | – |
+| 11 | Bewegungsqualitäts-Graph | **NIEDRIG** | #10 |
+| 12 | Benachrichtigungen (Schedule) | **NIEDRIG** | – |
+| 13 | Einstellungsscreen mit Backup/Restore | **MITTEL** | #1 |
+| 14 | CSV-Import/-Export (robuster) | **MITTEL** | – |
 
 ---
 
@@ -339,12 +398,12 @@ CREATE TABLE PushUpsRecord (
 
 1. **Ruhezeiten**: Welche genauen Sekunden sollen zwischen den Sätzen je Level-Gruppe gelten? (Vorschlag: 60s/90s/120s)
 
-2. **`.puud`-Import**: Sollen `which=1` (freie Einheiten) und `which=3` (Totals) beide importiert werden, oder nur einer? Sollen sie unterschiedlich gekennzeichnet werden?
+2. **`.puud`-Import**: Sollen `which=1` (freie Einheiten, Ø 20 Reps) und `which=3` (Session-Totals, Ø 107 Reps) beide importiert werden, oder nur einer? Sollen sie unterschiedlich gekennzeichnet werden?
 
 3. **Levelfortschritt**: Wechselt die App automatisch zur nächsten Woche/Stufe nach Abschluss, oder muss der Nutzer das manuell bestätigen?
 
-4. **Practice-Einschätzung**: Nach einer freien Runde – welche Logik soll den empfohlenen Einstiegslevel bestimmen? (z.B. max. Reps < X → Level 1 Easy, etc.)
+4. **Practice-Einschätzung**: Nach einer freien Runde – welche Logik soll den empfohlenen Einstiegslevel bestimmen? (z.B. max. Reps ≤ 5 → Level 1 Easy, etc.)
 
-5. **Analyse-Graph**: Direkt nach Training anzeigen oder nur auf Abruf in der Detailansicht?
+5. **Analyse-Graph**: Nur auf Abruf in der Session-Detailansicht, oder auch direkt im Post-Training-Flow?
 
-6. **Statistische Zusammenfassung**: Welche konkreten Kennzahlen sollen im Dashboard-Block oben links stehen? (Woche, Streak, Gesamtreps, aktuelles Level?)
+6. **Kalorie-Formel**: Soll eine feste Näherung (~0,5 kcal/Rep) verwendet werden, oder soll das Körpergewicht des Nutzers eingegeben werden können für eine genauere Berechnung?
