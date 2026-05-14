@@ -178,8 +178,8 @@ class _RecordScreenState extends State<RecordScreen> {
               padding: const EdgeInsets.fromLTRB(8, 0, 16, 0),
               child: LayoutBuilder(builder: (context, constraints) {
                 const leftReserved = 40.0;
-                final bw = ((constraints.maxWidth - leftReserved) / days)
-                    .clamp(1.0, 14.0);
+                final bw = ((constraints.maxWidth - leftReserved) / days * 0.5)
+                    .clamp(1.0, 7.0);
                 final barGroups = _buildBarGroups(data, days, valueFor, bw);
                 return _ComboChart(
                   barGroups:  barGroups,
@@ -283,7 +283,7 @@ class _ComboChart extends StatelessWidget {
             gridData:     const FlGridData(show: true),
             borderData:   FlBorderData(show: false),
             titlesData:   sharedTitles,
-            alignment:    BarChartAlignment.spaceBetween,
+            alignment:    BarChartAlignment.center,
             groupsSpace:  0,
             barTouchData: BarTouchData(
               touchCallback: (FlTouchEvent event, BarTouchResponse? response) {
