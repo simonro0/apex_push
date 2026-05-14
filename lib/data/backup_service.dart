@@ -1,13 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
-
-import 'package:crypto/crypto.dart';
+import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
+import 'package:crypto/crypto.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../logic/settings_provider.dart';
 import '../models/rep_detail.dart';
@@ -17,12 +15,11 @@ import 'database_helper.dart';
 typedef BackupResult = ({int workouts, int repDetails, bool settings, bool checksumMismatch});
 
 class BackupService {
-  /// Path where the last export was saved on device, or null if unavailable.
-  static String? lastSavedPath;
-
   // ── Export ─────────────────────────────────────────────────────────────────
 
-  static Future<void> exportBackup(SettingsProvider settings) async {
+  /// Opens the system "Save file" dialog (SAF) and writes the backup there.
+  /// Returns the saved path, or null if the user cancelled.
+  static Future<String?> exportBackup(SettingsProvider settings) async {
     final workouts   = await DatabaseHelper.instance.readAllWorkouts();
     final repDetails = await DatabaseHelper.instance.getAllRepDetails();
 
@@ -37,22 +34,14 @@ class BackupService {
       ..addFile(ArchiveFile('settings.csv',    sBytes.length, sBytes))
       ..addFile(ArchiveFile('checksums.txt',   cBytes.length, cBytes));
 
-    final zipBytes = ZipEncoder().encode(archive)!;
+    final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive)!);
 
-    // Write to a user-accessible location first (Downloads on Android).
-    final savedPath = await _saveToDevice(zipBytes);
-    lastSavedPath = savedPath;
-
-    // Also share so the user can send it elsewhere.
-    final shareFile = savedPath != null
-        ? File(savedPath)
-        : File('${(await getTemporaryDirectory()).path}/apex_push_backup.apxbak')
-            ..writeAsBytesSync(zipBytes);
-
-    await SharePlus.instance.share(ShareParams(
-      files: [XFile(shareFile.path)],
-      text:  'ApexPush Backup',
-    ));
+    // SAF "Save as" dialog — the user picks the folder (e.g. Downloads).
+    // No storage permission needed; the platform writes via ContentResolver.
+    return FilePicker.platform.saveFile(
+      fileName: 'apex_push_backup.apxbak',
+      bytes:    zipBytes,
+    );
   }
 
   // ── Import ─────────────────────────────────────────────────────────────────
@@ -77,25 +66,6 @@ class BackupService {
       return _importZip(path, settings);
     } else {
       return _importLegacyCsv(path);
-    }
-  }
-
-  // ── Device storage ─────────────────────────────────────────────────────────
-
-  static Future<String?> _saveToDevice(List<int> bytes) async {
-    try {
-      Directory? dir;
-      if (Platform.isAndroid) {
-        // getDownloadsDirectory → /storage/emulated/0/Download (user-visible)
-        dir = await getDownloadsDirectory();
-      }
-      dir ??= await getApplicationDocumentsDirectory();
-      if (!await dir!.exists()) await dir.create(recursive: true);
-      final path = '${dir.path}/apex_push_backup.apxbak';
-      await File(path).writeAsBytes(bytes);
-      return path;
-    } catch (_) {
-      return null;
     }
   }
 
