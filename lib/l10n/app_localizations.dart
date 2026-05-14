@@ -34,6 +34,10 @@ class AppLocalizations {
       // ── Data management ───────────────────────────────────────────────────
       'export_csv': 'CSV exportieren',
       'import_csv': 'CSV importieren',
+      'export_backup': 'Backup exportieren',
+      'import_backup': 'Backup importieren',
+      'backup_restored': '{w} Trainings, {r} Wdh.-Details importiert.',
+      'settings_restored': 'Einstellungen wiederhergestellt.',
       'import_puud': '.puud importieren',
       'no_data_imported': 'Keine Daten importiert.',
       'entries_imported': 'Einträge importiert.',
@@ -185,6 +189,10 @@ class AppLocalizations {
       // ── Data management ───────────────────────────────────────────────────
       'export_csv': 'Export CSV',
       'import_csv': 'Import CSV',
+      'export_backup': 'Export Backup',
+      'import_backup': 'Import Backup',
+      'backup_restored': '{w} workouts, {r} rep details imported.',
+      'settings_restored': 'Settings restored.',
       'import_puud': 'Import .puud',
       'no_data_imported': 'No data imported.',
       'entries_imported': 'entries imported.',

@@ -141,5 +141,36 @@ class DatabaseHelper {
     return rows.map(RepDetail.fromMap).toList();
   }
 
+  Future<List<RepDetail>> getAllRepDetails() async {
+    final db = await instance.database;
+    final rows = await db.query(
+      'rep_details',
+      orderBy: 'workout_id ASC, rep_index ASC',
+    );
+    return rows.map(RepDetail.fromMap).toList();
+  }
+
+  /// Batch-inserts rep_details using each row's own workoutId field.
+  Future<void> insertRepDetailsBatch(List<RepDetail> details) async {
+    if (details.isEmpty) return;
+    final db = await instance.database;
+    const chunkSize = 500;
+    for (var i = 0; i < details.length; i += chunkSize) {
+      final end   = (i + chunkSize).clamp(0, details.length);
+      final batch = db.batch();
+      for (final d in details.sublist(i, end)) {
+        batch.insert('rep_details', {
+          'workout_id':    d.workoutId,
+          'rep_index':     d.repIndex,
+          'timestamp_ms':  d.timestampMs,
+          'peak_g':        d.peakG,
+          'is_near':       d.isNear ? 1 : 0,
+          'proximity_val': d.proximityVal,
+        });
+      }
+      await batch.commit(noResult: true);
+    }
+  }
+
   Future<void> close() async => (await instance.database).close();
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../data/csv_service.dart';
+import '../data/backup_service.dart';
 import '../l10n/app_localizations.dart';
 import '../logic/audio_service.dart';
 import '../logic/settings_provider.dart';
@@ -120,16 +120,13 @@ class SettingsScreen extends StatelessWidget {
           _SectionHeader(context.t('data')),
           _SettingsTile(
             icon: Icons.upload_file,
-            title: context.t('export_csv'),
-            onTap: () {
-              final provider = context.read<WorkoutProvider>();
-              CsvService.exportToCsv(provider.history);
-            },
+            title: context.t('export_backup'),
+            onTap: () => _exportBackup(context),
           ),
           _SettingsTile(
             icon: Icons.download,
-            title: context.t('import_csv'),
-            onTap: () => _importCsv(context),
+            title: context.t('import_backup'),
+            onTap: () => _importBackup(context),
           ),
           _SettingsTile(
             icon: Icons.restore,
@@ -168,22 +165,42 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _importCsv(BuildContext context) async {
-    final provider = context.read<WorkoutProvider>();
-    final imported = await CsvService.importFromCsv();
+  Future<void> _exportBackup(BuildContext context) async {
+    final settings = context.read<SettingsProvider>();
+    await BackupService.exportBackup(settings);
+  }
+
+  Future<void> _importBackup(BuildContext context) async {
+    final settings  = context.read<SettingsProvider>();
+    final provider  = context.read<WorkoutProvider>();
+    final result    = await BackupService.importBackup(settings);
     if (!context.mounted) return;
-    if (imported.isEmpty) {
+
+    if (result.workouts == -1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('cancelled'))),
+      );
+      return;
+    }
+    if (result.workouts == 0 && !result.settings) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.tr('no_data_imported'))),
       );
       return;
     }
-    await provider.saveMultipleWorkouts(imported);
+
+    await provider.loadHistoryFromDb();
     if (!context.mounted) return;
+
+    final parts = <String>[
+      context.tp('backup_restored', {
+        'w': '${result.workouts}',
+        'r': '${result.repDetails}',
+      }),
+      if (result.settings) context.tr('settings_restored'),
+    ];
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${imported.length} ${context.tr('entries_imported')}'),
-      ),
+      SnackBar(content: Text(parts.join(' '))),
     );
   }
 
