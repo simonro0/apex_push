@@ -34,12 +34,12 @@ class BackupService {
       ..addFile(ArchiveFile('settings.csv',    sBytes.length, sBytes))
       ..addFile(ArchiveFile('checksums.txt',   cBytes.length, cBytes));
 
-    final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive)!);
+    final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive));
 
     // SAF "Save as" dialog — the user picks the folder (e.g. Downloads).
     // No storage permission needed; the platform writes via ContentResolver.
     return FilePicker.platform.saveFile(
-      fileName: 'apex_push_backup.apxbak',
+      fileName: 'apex_push_backup_${_timestamp()}.apxbak',
       bytes:    zipBytes,
     );
   }
@@ -51,30 +51,44 @@ class BackupService {
   static Future<BackupResult> importBackup(SettingsProvider settings) async {
     FilePickerResult? result;
     try {
-      result = await FilePicker.platform.pickFiles(type: FileType.any);
+      // withData: true → file_picker reads via ContentResolver, avoiding
+      // content:// URI path issues that cause silent import failures on Android.
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        withData: true,
+      );
     } catch (_) {
       return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false);
     }
 
-    if (result == null || result.files.single.path == null) {
+    if (result == null) {
       return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false);
     }
 
-    final path = result.files.single.path!;
+    final file = result.files.single;
 
-    if (path.endsWith('.apxbak')) {
-      return _importZip(path, settings);
-    } else {
-      return _importLegacyCsv(path);
+    // Prefer in-memory bytes from withData; fall back to path read.
+    final Uint8List? bytes = file.bytes ??
+        (file.path != null ? await File(file.path!).readAsBytes() : null);
+
+    if (bytes == null) {
+      return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false);
     }
+
+    // Detect format by ZIP magic bytes (PK\x03\x04) — do not rely on extension
+    // because Android SAF paths may not preserve the original filename.
+    final isZip = bytes.length >= 4 &&
+        bytes[0] == 0x50 && bytes[1] == 0x4B &&
+        bytes[2] == 0x03 && bytes[3] == 0x04;
+
+    return isZip ? _importZip(bytes, settings) : _importLegacyCsv(bytes);
   }
 
   // ── ZIP import ─────────────────────────────────────────────────────────────
 
   static Future<BackupResult> _importZip(
-      String path, SettingsProvider settingsProvider) async {
+      Uint8List bytes, SettingsProvider settingsProvider) async {
     try {
-      final bytes   = await File(path).readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);
 
       List<Workout>?          workouts;
@@ -171,9 +185,9 @@ class BackupService {
 
   // ── Legacy CSV import (workouts only) ──────────────────────────────────────
 
-  static Future<BackupResult> _importLegacyCsv(String path) async {
+  static Future<BackupResult> _importLegacyCsv(Uint8List bytes) async {
     try {
-      final content  = await File(path).readAsString();
+      final content  = utf8.decode(bytes);
       final rows     = const CsvToListConverter().convert(content);
       if (rows.length < 2) {
         return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false);
@@ -187,6 +201,17 @@ class BackupService {
     } catch (_) {
       return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false);
     }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  static String _timestamp() {
+    final n = DateTime.now();
+    return '${n.year}'
+        '${n.month.toString().padLeft(2, '0')}'
+        '${n.day.toString().padLeft(2, '0')}'
+        '_${n.hour.toString().padLeft(2, '0')}'
+        '${n.minute.toString().padLeft(2, '0')}';
   }
 
   // ── Checksum helpers ───────────────────────────────────────────────────────
