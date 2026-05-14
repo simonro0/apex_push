@@ -1,15 +1,20 @@
+import 'dart:math';
+
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/database_helper.dart';
 import '../l10n/app_localizations.dart';
 import '../logic/settings_provider.dart';
+import '../models/rep_detail.dart';
 import '../models/workout.dart';
 
 // Weekday abbreviations used by _WeeklyCard.
 const _weekdaysDe = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 const _weekdaysEn = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-class SessionDetailScreen extends StatelessWidget {
+class SessionDetailScreen extends StatefulWidget {
   final Workout        workout;
   final List<int>      splits;
   final List<int>      targetReps;
@@ -26,14 +31,34 @@ class SessionDetailScreen extends StatelessWidget {
   });
 
   @override
+  State<SessionDetailScreen> createState() => _SessionDetailScreenState();
+}
+
+class _SessionDetailScreenState extends State<SessionDetailScreen> {
+  List<RepDetail> _repDetails = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRepDetails();
+  }
+
+  Future<void> _loadRepDetails() async {
+    final id = widget.workout.id;
+    if (id == null) return;
+    final details = await DatabaseHelper.instance.getRepDetailsForWorkout(id);
+    if (mounted) setState(() => _repDetails = details);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final calories = (workout.count * 0.5).round();
-    final mins     = workout.durationSeconds ~/ 60;
-    final secs     = workout.durationSeconds % 60;
+    final calories = (widget.workout.count * 0.5).round();
+    final mins     = widget.workout.durationSeconds ~/ 60;
+    final secs     = widget.workout.durationSeconds % 60;
     final locale   = context.watch<SettingsProvider>().locale;
 
-    final levelStr = workout.levelId != null
-        ? '${workout.levelId} (${workout.difficulty})'
+    final levelStr = widget.workout.levelId != null
+        ? '${widget.workout.levelId} (${widget.workout.difficulty})'
         : context.t('free_training_label');
 
     return Scaffold(
@@ -42,17 +67,17 @@ class SessionDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           _SummaryCard(
-            dateStr:      AppLocalizations.formatDate(workout.date, locale),
+            dateStr:      AppLocalizations.formatDate(widget.workout.date, locale),
             level:        levelStr,
-            totalReps:    workout.count,
+            totalReps:    widget.workout.count,
             duration:     context.tp('min_sec', {
               'min': '$mins',
               'sec': secs.toString().padLeft(2, '0'),
             }),
             calories:     context.tp('kcal_approx', {'n': '$calories'}),
-            verifiedReps: verifiedReps,
+            verifiedReps: widget.verifiedReps,
           ),
-          if (splits.isNotEmpty) ...[
+          if (widget.splits.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(
               context.t('sets_section'),
@@ -61,9 +86,9 @@ class SessionDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            ...List.generate(splits.length, (i) {
-              final target  = i < targetReps.length ? targetReps[i] : null;
-              final reached = splits[i];
+            ...List.generate(widget.splits.length, (i) {
+              final target  = i < widget.targetReps.length ? widget.targetReps[i] : null;
+              final reached = widget.splits[i];
               final ok      = target == null || reached >= target;
               return _SetRow(
                 label:   context.tp('set_n', {'n': '${i + 1}'}),
@@ -75,9 +100,13 @@ class SessionDetailScreen extends StatelessWidget {
               );
             }),
           ],
-          if (history != null) ...[
+          if (widget.history != null) ...[
             const SizedBox(height: 20),
-            _WeeklyCard(history: history!, baseDate: workout.date),
+            _WeeklyCard(history: widget.history!, baseDate: widget.workout.date),
+          ],
+          if (_repDetails.length >= 2) ...[
+            const SizedBox(height: 20),
+            _SensorSection(details: _repDetails),
           ],
         ],
       ),
@@ -332,4 +361,196 @@ class _WeeklyCard extends StatelessWidget {
 
   static String _compact(int n) =>
       n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : '$n';
+}
+
+// ── Sensor chart section ──────────────────────────────────────────────────────
+
+class _SensorSection extends StatelessWidget {
+  final List<RepDetail> details;
+
+  const _SensorSection({required this.details});
+
+  static ({double min, double max, double avg, double variance})
+      _stats(List<double> deltas) {
+    if (deltas.isEmpty) {
+      return (min: 0.0, max: 0.0, avg: 0.0, variance: 0.0);
+    }
+    final mn  = deltas.reduce(min);
+    final mx  = deltas.reduce(max);
+    final avg = deltas.fold(0.0, (s, v) => s + v) / deltas.length;
+    final vr  = deltas.fold(0.0, (s, v) => s + (v - avg) * (v - avg)) /
+        deltas.length;
+    return (min: mn, max: mx, avg: avg, variance: vr);
+  }
+
+  static List<double> _deltas(List<double> values) {
+    final result = <double>[];
+    for (var i = 1; i < values.length; i++) {
+      result.add((values[i] - values[i - 1]).abs());
+    }
+    return result;
+  }
+
+  Widget _miniChart(
+    BuildContext context,
+    List<FlSpot> spots,
+    String label,
+    Color color,
+  ) {
+    if (spots.isEmpty) return const SizedBox.shrink();
+    final rawMax = spots.map((s) => s.y).reduce(max);
+    final maxY   = (rawMax * 1.2).clamp(0.1, double.infinity);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 90,
+          child: LineChart(
+            LineChartData(
+              lineBarsData: [
+                LineChartBarData(
+                  spots:     spots,
+                  isCurved:  false,
+                  color:     color,
+                  barWidth:  1.5,
+                  dotData:   const FlDotData(show: false),
+                  belowBarData: BarAreaData(
+                    show:  true,
+                    color: color.withValues(alpha: 0.08),
+                  ),
+                ),
+              ],
+              minY:  0,
+              maxY:  maxY,
+              titlesData: FlTitlesData(
+                topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles:   true,
+                    reservedSize: 32,
+                    getTitlesWidget: (v, m) => Text(
+                      v.toStringAsFixed(1),
+                      style: const TextStyle(fontSize: 8, color: Colors.grey),
+                    ),
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles:   true,
+                    reservedSize: 16,
+                    getTitlesWidget: (v, m) => Text(
+                      '${v.toInt()}s',
+                      style: const TextStyle(fontSize: 8, color: Colors.grey),
+                    ),
+                  ),
+                ),
+              ),
+              gridData:   const FlGridData(show: false),
+              borderData: FlBorderData(show: false),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary   = Theme.of(context).colorScheme.primary;
+    final secondary = Theme.of(context).colorScheme.secondary;
+
+    final peakSpots = details
+        .map((d) => FlSpot(d.timestampMs / 1000.0, d.peakG))
+        .toList();
+    final proxSpots = details
+        .map((d) => FlSpot(d.timestampMs / 1000.0, d.proximityVal))
+        .toList();
+
+    final peakDeltas  = _deltas(details.map((d) => d.peakG).toList());
+    final proxDeltas  = _deltas(details.map((d) => d.proximityVal).toList());
+    final peakStats   = _stats(peakDeltas);
+    final proxStats   = _stats(proxDeltas);
+
+    String fmt(double v) => v.toStringAsFixed(2);
+
+    return Card(
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          title: Text(
+            context.t('sensor_chart_title'),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          initiallyExpanded: false,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _miniChart(context, peakSpots, context.t('peak_g_label'), primary),
+                  const SizedBox(height: 12),
+                  _miniChart(context, proxSpots, context.t('proximity_label'), secondary),
+                  const SizedBox(height: 16),
+                  // ── Stats table ─────────────────────────────────────────────
+                  Text(
+                    context.t('stat_diff_label'),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 6),
+                  Table(
+                    columnWidths: const {
+                      0: FlexColumnWidth(2),
+                      1: FlexColumnWidth(1.5),
+                      2: FlexColumnWidth(1.5),
+                      3: FlexColumnWidth(1.5),
+                      4: FlexColumnWidth(1.5),
+                    },
+                    children: [
+                      _statRow('', context.t('stat_min'), context.t('stat_max'),
+                          context.t('stat_avg'), context.t('stat_var'),
+                          isHeader: true),
+                      _statRow(
+                        context.t('peak_g_label'),
+                        fmt(peakStats.min), fmt(peakStats.max),
+                        fmt(peakStats.avg), fmt(peakStats.variance),
+                      ),
+                      _statRow(
+                        context.t('proximity_label'),
+                        fmt(proxStats.min), fmt(proxStats.max),
+                        fmt(proxStats.avg), fmt(proxStats.variance),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static TableRow _statRow(
+    String label, String mn, String mx, String avg, String vr, {
+    bool isHeader = false,
+  }) {
+    TextStyle style = isHeader
+        ? const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)
+        : const TextStyle(fontSize: 10);
+    return TableRow(
+      children: [label, mn, mx, avg, vr]
+          .map((s) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(s, style: style),
+              ))
+          .toList(),
+    );
+  }
 }

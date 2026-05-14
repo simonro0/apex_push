@@ -19,7 +19,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), filePath);
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -46,8 +46,9 @@ class DatabaseHelper {
         workout_id   INTEGER NOT NULL,
         rep_index    INTEGER NOT NULL,
         timestamp_ms INTEGER NOT NULL,
-        peak_g       REAL    NOT NULL,
-        is_near      INTEGER NOT NULL DEFAULT 0,
+        peak_g         REAL    NOT NULL,
+        is_near        INTEGER NOT NULL DEFAULT 0,
+        proximity_val  REAL    NOT NULL DEFAULT 0,
         FOREIGN KEY (workout_id) REFERENCES workouts(id)
       )
     ''');
@@ -64,15 +65,21 @@ class DatabaseHelper {
     if (oldVersion < 3) {
       await db.execute('''
         CREATE TABLE IF NOT EXISTS rep_details (
-          id           INTEGER PRIMARY KEY AUTOINCREMENT,
-          workout_id   INTEGER NOT NULL,
-          rep_index    INTEGER NOT NULL,
-          timestamp_ms INTEGER NOT NULL,
-          peak_g       REAL    NOT NULL,
-          is_near      INTEGER NOT NULL DEFAULT 0,
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          workout_id     INTEGER NOT NULL,
+          rep_index      INTEGER NOT NULL,
+          timestamp_ms   INTEGER NOT NULL,
+          peak_g         REAL    NOT NULL,
+          is_near        INTEGER NOT NULL DEFAULT 0,
+          proximity_val  REAL    NOT NULL DEFAULT 0,
           FOREIGN KEY (workout_id) REFERENCES workouts(id)
         )
       ''');
+    }
+    if (oldVersion < 4) {
+      await db.execute(
+        'ALTER TABLE rep_details ADD COLUMN proximity_val REAL NOT NULL DEFAULT 0',
+      );
     }
   }
 
@@ -112,11 +119,12 @@ class DatabaseHelper {
     final batch = db.batch();
     for (final d in details) {
       batch.insert('rep_details', {
-        'workout_id':   workoutId,
-        'rep_index':    d.repIndex,
-        'timestamp_ms': d.timestampMs,
-        'peak_g':       d.peakG,
-        'is_near':      d.isNear ? 1 : 0,
+        'workout_id':    workoutId,
+        'rep_index':     d.repIndex,
+        'timestamp_ms':  d.timestampMs,
+        'peak_g':        d.peakG,
+        'is_near':       d.isNear ? 1 : 0,
+        'proximity_val': d.proximityVal,
       });
     }
     await batch.commit(noResult: true);

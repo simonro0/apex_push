@@ -120,13 +120,14 @@ class WorkoutProvider with ChangeNotifier {
     _lastRepVerified = result.verified;
     if (result.verified) _verifiedRepsCount++;
     _repBuffer.add(RepDetail(
-      workoutId:   0, // filled in by saveWorkout after DB insert
-      repIndex:    _currentSessionCount,
-      timestampMs: _startTime != null
+      workoutId:    0, // filled in by saveWorkout after DB insert
+      repIndex:     _currentSessionCount,
+      timestampMs:  _startTime != null
           ? DateTime.now().difference(_startTime!).inMilliseconds
           : 0,
-      peakG:   result.peakG,
-      isNear:  result.isNear,
+      peakG:        result.peakG,
+      isNear:       result.isNear,
+      proximityVal: result.proximityRaw,
     ));
     _currentSessionCount++;
     notifyListeners();
@@ -156,10 +157,22 @@ class WorkoutProvider with ChangeNotifier {
       difficulty:      isFreeTraining ? null : _activeProgram.difficulty,
     );
 
-    final workoutId = await DatabaseHelper.instance.createWorkout(workout);
+    final workoutId   = await DatabaseHelper.instance.createWorkout(workout);
+    final savedWorkout = Workout(
+      id:              workoutId,
+      date:            workout.date,
+      count:           workout.count,
+      durationSeconds: workout.durationSeconds,
+      avgRpm:          workout.avgRpm,
+      isImported:      workout.isImported,
+      isVerified:      workout.isVerified,
+      isFreeTraining:  workout.isFreeTraining,
+      levelId:         workout.levelId,
+      difficulty:      workout.difficulty,
+    );
     await DatabaseHelper.instance.insertRepDetails(workoutId, _repBuffer);
     await loadHistoryFromDb();
-    return workout;
+    return savedWorkout;
   }
 
   // ── Data management ────────────────────────────────────────────────────────

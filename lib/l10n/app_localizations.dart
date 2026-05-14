@@ -125,7 +125,15 @@ class AppLocalizations {
       'sensitivity_medium': 'Mittel',
       'sensitivity_low': 'Niedrig',
       // ── Sensor / session stats ────────────────────────────────────────────
-      'sensor_verified': 'Verifiziert',
+      'sensor_verified':    'Verifiziert',
+      'sensor_chart_title': 'Sensor-Daten',
+      'peak_g_label':       'Beschleunigung (G)',
+      'proximity_label':    'Abstand (cm)',
+      'stat_min':           'Min',
+      'stat_max':           'Max',
+      'stat_avg':           'Ø',
+      'stat_var':           'Var',
+      'stat_diff_label':    'Δ zwischen Wdh.',
       // ── Weekly overview ───────────────────────────────────────────────────
       'week_overview': 'Diese Woche',
       'week_total':    '{n} Wdh.',
@@ -265,7 +273,15 @@ class AppLocalizations {
       'sensitivity_medium': 'Medium',
       'sensitivity_low': 'Low',
       // ── Sensor / session stats ────────────────────────────────────────────
-      'sensor_verified': 'Verified',
+      'sensor_verified':    'Verified',
+      'sensor_chart_title': 'Sensor Data',
+      'peak_g_label':       'Acceleration (G)',
+      'proximity_label':    'Distance (cm)',
+      'stat_min':           'Min',
+      'stat_max':           'Max',
+      'stat_avg':           'Avg',
+      'stat_var':           'Var',
+      'stat_diff_label':    'Δ between reps',
       // ── Weekly overview ───────────────────────────────────────────────────
       'week_overview': 'This Week',
       'week_total':    '{n} reps',
