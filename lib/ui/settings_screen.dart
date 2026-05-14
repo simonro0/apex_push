@@ -202,26 +202,21 @@ class SettingsScreen extends StatelessWidget {
     await provider.loadHistoryFromDb();
     if (!context.mounted) return;
 
-    if (result.checksumMismatch) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.tr('checksum_mismatch')),
-          backgroundColor: Colors.red.shade700,
-          duration: const Duration(seconds: 6),
-        ),
-      );
-      return;
-    }
+    final importLine = context.tp('backup_restored', {
+      'w': '${result.workouts}',
+      'r': '${result.repDetails}',
+    });
+    final message = result.checksumMismatch
+        ? '$importLine\n${context.tr('checksum_mismatch')}'
+        : [importLine, if (result.settings) context.tr('settings_restored')]
+            .join(' ');
 
-    final parts = <String>[
-      context.tp('backup_restored', {
-        'w': '${result.workouts}',
-        'r': '${result.repDetails}',
-      }),
-      if (result.settings) context.tr('settings_restored'),
-    ];
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(parts.join(' '))),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: result.checksumMismatch ? Colors.orange.shade800 : null,
+        duration: Duration(seconds: result.checksumMismatch ? 6 : 4),
+      ),
     );
   }
 

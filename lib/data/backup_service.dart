@@ -133,20 +133,24 @@ class BackupService {
         }
       }
 
-      // Verify checksums when the file contains them
-      var checksumMismatch = false;
+      // Verify checksums — missing checksums.txt also counts as unverified
+      var integrityOk = false;
       if (storedChecksums != null) {
-        if (rawWorkouts != null) {
-          final actual = _sha256hex(rawWorkouts);
-          if (storedChecksums['workouts.csv'] != actual) checksumMismatch = true;
+        var allMatch = true;
+        if (rawWorkouts != null &&
+            storedChecksums['workouts.csv'] != _sha256hex(rawWorkouts)) {
+          allMatch = false;
         }
-        if (rawRepDetails != null) {
-          final actual = _sha256hex(rawRepDetails);
-          if (storedChecksums['rep_details.csv'] != actual) checksumMismatch = true;
+        if (rawRepDetails != null &&
+            storedChecksums['rep_details.csv'] != _sha256hex(rawRepDetails)) {
+          allMatch = false;
         }
+        integrityOk = allMatch;
       }
+      final checksumMismatch = !integrityOk;
 
-      // Insert workouts one-by-one to capture new DB IDs
+      // Insert workouts one-by-one to capture new DB IDs.
+      // Force isVerified=false when integrity cannot be confirmed.
       final idMap        = <int, int>{};
       var   workoutCount = 0;
       for (final w in workouts ?? <Workout>[]) {
@@ -156,7 +160,7 @@ class BackupService {
           durationSeconds: w.durationSeconds,
           avgRpm:          w.avgRpm,
           isImported:      true,
-          isVerified:      w.isVerified,
+          isVerified:      integrityOk && w.isVerified,
           isFreeTraining:  w.isFreeTraining,
           levelId:         w.levelId,
           difficulty:      w.difficulty,
