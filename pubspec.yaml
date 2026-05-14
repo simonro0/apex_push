@@ -40,6 +40,7 @@ dependencies:
   sqflite: any
   shared_preferences: any
   archive: any
+  crypto: any
   path: any
   fl_chart: any
   flutter_native_splash: any

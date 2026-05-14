@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
+
 import 'package:archive/archive_io.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
@@ -12,7 +14,7 @@ import '../models/rep_detail.dart';
 import '../models/workout.dart';
 import 'database_helper.dart';
 
-typedef BackupResult = ({int workouts, int repDetails, bool settings});
+typedef BackupResult = ({int workouts, int repDetails, bool settings, bool checksumMismatch});
 
 class BackupService {
   /// Path where the last export was saved on device, or null if unavailable.
@@ -27,11 +29,13 @@ class BackupService {
     final wBytes = _workoutsCsv(workouts);
     final rBytes = _repDetailsCsv(repDetails);
     final sBytes = _settingsCsv(settings.toBackupMap());
+    final cBytes = _buildChecksums(wBytes, rBytes);
 
     final archive = Archive()
       ..addFile(ArchiveFile('workouts.csv',    wBytes.length, wBytes))
       ..addFile(ArchiveFile('rep_details.csv', rBytes.length, rBytes))
-      ..addFile(ArchiveFile('settings.csv',    sBytes.length, sBytes));
+      ..addFile(ArchiveFile('settings.csv',    sBytes.length, sBytes))
+      ..addFile(ArchiveFile('checksums.txt',   cBytes.length, cBytes));
 
     final zipBytes = ZipEncoder().encode(archive)!;
 
@@ -60,11 +64,11 @@ class BackupService {
     try {
       result = await FilePicker.platform.pickFiles(type: FileType.any);
     } catch (_) {
-      return (workouts: -1, repDetails: 0, settings: false);
+      return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false);
     }
 
     if (result == null || result.files.single.path == null) {
-      return (workouts: -1, repDetails: 0, settings: false);
+      return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false);
     }
 
     final path = result.files.single.path!;
@@ -106,14 +110,39 @@ class BackupService {
       List<Workout>?          workouts;
       List<RepDetail>?        repDetails;
       Map<String, String>?    settingsMap;
+      Map<String, String>?    storedChecksums;
+
+      // Raw bytes kept for checksum verification before parsing
+      List<int>? rawWorkouts;
+      List<int>? rawRepDetails;
 
       for (final entry in archive) {
         if (!entry.isFile) continue;
-        final content = utf8.decode(entry.content as List<int>);
+        final raw = entry.content as List<int>;
         switch (entry.name) {
-          case 'workouts.csv':    workouts    = _parseWorkouts(content);
-          case 'rep_details.csv': repDetails  = _parseRepDetails(content);
-          case 'settings.csv':    settingsMap = _parseSettings(content);
+          case 'workouts.csv':
+            rawWorkouts = raw;
+            workouts    = _parseWorkouts(utf8.decode(raw));
+          case 'rep_details.csv':
+            rawRepDetails = raw;
+            repDetails    = _parseRepDetails(utf8.decode(raw));
+          case 'settings.csv':
+            settingsMap = _parseSettings(utf8.decode(raw));
+          case 'checksums.txt':
+            storedChecksums = _parseChecksumFile(utf8.decode(raw));
+        }
+      }
+
+      // Verify checksums when the file contains them
+      var checksumMismatch = false;
+      if (storedChecksums != null) {
+        if (rawWorkouts != null) {
+          final actual = _sha256hex(rawWorkouts);
+          if (storedChecksums['workouts.csv'] != actual) checksumMismatch = true;
+        }
+        if (rawRepDetails != null) {
+          final actual = _sha256hex(rawRepDetails);
+          if (storedChecksums['rep_details.csv'] != actual) checksumMismatch = true;
         }
       }
 
@@ -159,9 +188,10 @@ class BackupService {
         settingsRestored = true;
       }
 
-      return (workouts: workoutCount, repDetails: repCount, settings: settingsRestored);
+      return (workouts: workoutCount, repDetails: repCount,
+              settings: settingsRestored, checksumMismatch: checksumMismatch);
     } catch (_) {
-      return (workouts: 0, repDetails: 0, settings: false);
+      return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false);
     }
   }
 
@@ -171,14 +201,40 @@ class BackupService {
     try {
       final content  = await File(path).readAsString();
       final rows     = const CsvToListConverter().convert(content);
-      if (rows.length < 2) return (workouts: 0, repDetails: 0, settings: false);
+      if (rows.length < 2) {
+        return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false);
+      }
       final workouts = rows.skip(1).map((r) => Workout.fromCsv(r)).toList();
-      if (workouts.isEmpty) return (workouts: 0, repDetails: 0, settings: false);
+      if (workouts.isEmpty) {
+        return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false);
+      }
       await DatabaseHelper.instance.batchInsert(workouts);
-      return (workouts: workouts.length, repDetails: 0, settings: false);
+      return (workouts: workouts.length, repDetails: 0, settings: false, checksumMismatch: false);
     } catch (_) {
-      return (workouts: 0, repDetails: 0, settings: false);
+      return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false);
     }
+  }
+
+  // ── Checksum helpers ───────────────────────────────────────────────────────
+
+  static String _sha256hex(List<int> bytes) =>
+      sha256.convert(bytes).toString();
+
+  static List<int> _buildChecksums(List<int> wBytes, List<int> rBytes) {
+    final lines = [
+      'workouts.csv=${_sha256hex(wBytes)}',
+      'rep_details.csv=${_sha256hex(rBytes)}',
+    ].join('\n');
+    return utf8.encode(lines);
+  }
+
+  static Map<String, String> _parseChecksumFile(String content) {
+    final map = <String, String>{};
+    for (final line in content.split('\n')) {
+      final idx = line.indexOf('=');
+      if (idx > 0) map[line.substring(0, idx)] = line.substring(idx + 1).trim();
+    }
+    return map;
   }
 
   // ── CSV builders ───────────────────────────────────────────────────────────

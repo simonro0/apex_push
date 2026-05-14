@@ -202,6 +202,17 @@ class SettingsScreen extends StatelessWidget {
     await provider.loadHistoryFromDb();
     if (!context.mounted) return;
 
+    if (result.checksumMismatch) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr('checksum_mismatch')),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+      return;
+    }
+
     final parts = <String>[
       context.tp('backup_restored', {
         'w': '${result.workouts}',
