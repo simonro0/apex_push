@@ -58,10 +58,7 @@ class BackupService {
   static Future<BackupResult> importBackup(SettingsProvider settings) async {
     FilePickerResult? result;
     try {
-      result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['apxbak', 'csv'],
-      );
+      result = await FilePicker.platform.pickFiles(type: FileType.any);
     } catch (_) {
       return (workouts: -1, repDetails: 0, settings: false);
     }
@@ -83,12 +80,13 @@ class BackupService {
 
   static Future<String?> _saveToDevice(List<int> bytes) async {
     try {
-      // Prefer external storage (SD card / shared Downloads) on Android.
       Directory? dir;
       if (Platform.isAndroid) {
-        dir = await getExternalStorageDirectory();
+        // getDownloadsDirectory → /storage/emulated/0/Download (user-visible)
+        dir = await getDownloadsDirectory();
       }
       dir ??= await getApplicationDocumentsDirectory();
+      if (!await dir!.exists()) await dir.create(recursive: true);
       final path = '${dir.path}/apex_push_backup.apxbak';
       await File(path).writeAsBytes(bytes);
       return path;
