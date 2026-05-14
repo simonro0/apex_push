@@ -168,6 +168,16 @@ class SettingsScreen extends StatelessWidget {
   Future<void> _exportBackup(BuildContext context) async {
     final settings = context.read<SettingsProvider>();
     await BackupService.exportBackup(settings);
+    if (!context.mounted) return;
+    final path = BackupService.lastSavedPath;
+    if (path != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr('backup_saved_to').replaceAll('{path}', path)),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 
   Future<void> _importBackup(BuildContext context) async {

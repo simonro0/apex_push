@@ -15,6 +15,9 @@ import 'database_helper.dart';
 typedef BackupResult = ({int workouts, int repDetails, bool settings});
 
 class BackupService {
+  /// Path where the last export was saved on device, or null if unavailable.
+  static String? lastSavedPath;
+
   // ── Export ─────────────────────────────────────────────────────────────────
 
   static Future<void> exportBackup(SettingsProvider settings) async {
@@ -31,12 +34,19 @@ class BackupService {
       ..addFile(ArchiveFile('settings.csv',    sBytes.length, sBytes));
 
     final zipBytes = ZipEncoder().encode(archive)!;
-    final dir  = await getTemporaryDirectory();
-    final file = File('${dir.path}/apex_push_backup.apxbak');
-    await file.writeAsBytes(zipBytes);
+
+    // Write to a user-accessible location first (Downloads on Android).
+    final savedPath = await _saveToDevice(zipBytes);
+    lastSavedPath = savedPath;
+
+    // Also share so the user can send it elsewhere.
+    final shareFile = savedPath != null
+        ? File(savedPath)
+        : File('${(await getTemporaryDirectory()).path}/apex_push_backup.apxbak')
+            ..writeAsBytesSync(zipBytes);
 
     await SharePlus.instance.share(ShareParams(
-      files: [XFile(file.path)],
+      files: [XFile(shareFile.path)],
       text:  'ApexPush Backup',
     ));
   }
@@ -66,6 +76,24 @@ class BackupService {
       return _importZip(path, settings);
     } else {
       return _importLegacyCsv(path);
+    }
+  }
+
+  // ── Device storage ─────────────────────────────────────────────────────────
+
+  static Future<String?> _saveToDevice(List<int> bytes) async {
+    try {
+      // Prefer external storage (SD card / shared Downloads) on Android.
+      Directory? dir;
+      if (Platform.isAndroid) {
+        dir = await getExternalStorageDirectory();
+      }
+      dir ??= await getApplicationDocumentsDirectory();
+      final path = '${dir.path}/apex_push_backup.apxbak';
+      await File(path).writeAsBytes(bytes);
+      return path;
+    } catch (_) {
+      return null;
     }
   }
 
