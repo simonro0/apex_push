@@ -164,31 +164,42 @@ class SettingsProvider with ChangeNotifier {
   };
 
   Future<void> restoreFromBackup(Map<String, String> map) async {
-    if (map.containsKey('theme_mode'))
+    if (map.containsKey('theme_mode')) {
       await setThemeMode(_modeFromString(map['theme_mode']!));
-    if (map.containsKey('locale'))
+    }
+    if (map.containsKey('locale')) {
       await setLocale(map['locale']!);
-    if (map.containsKey('audio_enabled'))
+    }
+    if (map.containsKey('audio_enabled')) {
       await setAudioEnabled(map['audio_enabled'] == 'true');
-    if (map.containsKey('rep_sound_enabled'))
+    }
+    if (map.containsKey('rep_sound_enabled')) {
       await setRepSoundEnabled(map['rep_sound_enabled'] == 'true');
-    if (map.containsKey('audio_volume'))
+    }
+    if (map.containsKey('audio_volume')) {
       await setAudioVolume(double.tryParse(map['audio_volume']!) ?? 1.0);
-    if (map.containsKey('notifications_enabled'))
+    }
+    if (map.containsKey('notifications_enabled')) {
       await setNotificationsEnabled(map['notifications_enabled'] == 'true');
-    if (map.containsKey('reminder_hour'))
+    }
+    if (map.containsKey('reminder_hour')) {
       await setReminderTime(
         int.tryParse(map['reminder_hour']!)  ?? 9,
         int.tryParse(map['reminder_minute'] ?? '0') ?? 0,
       );
-    if (map.containsKey('rest_easy'))
+    }
+    if (map.containsKey('rest_easy')) {
       await setRestSecondsEasy(int.tryParse(map['rest_easy']!) ?? 30);
-    if (map.containsKey('rest_normal'))
+    }
+    if (map.containsKey('rest_normal')) {
       await setRestSecondsNormal(int.tryParse(map['rest_normal']!) ?? 60);
-    if (map.containsKey('rest_hard'))
+    }
+    if (map.containsKey('rest_hard')) {
       await setRestSecondsHard(int.tryParse(map['rest_hard']!) ?? 120);
-    if (map.containsKey('sensor_threshold'))
+    }
+    if (map.containsKey('sensor_threshold')) {
       await setSensorThreshold(double.tryParse(map['sensor_threshold']!) ?? 12.0);
+    }
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

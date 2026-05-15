@@ -23,7 +23,7 @@ class CsvService {
         w.isFreeTraining ? 1 : 0,
       ]);
     }
-    final csvData = const ListToCsvConverter().convert(rows);
+    final csvData = Csv().encode(rows);
     final directory = await getTemporaryDirectory();
     final file = File('${directory.path}/apex_push_export.csv');
     await file.writeAsString(csvData);
@@ -46,7 +46,7 @@ class CsvService {
 
     try {
       final input = await File(result.files.single.path!).readAsString();
-      final rows = const CsvToListConverter().convert(input);
+      final rows = Csv().decode(input);
       if (rows.length < 2) return [];
 
       return rows.skip(1).map((row) => Workout.fromCsv(row)).toList();

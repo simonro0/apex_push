@@ -235,7 +235,7 @@ class BackupService {
   static Future<BackupResult> _importLegacyCsv(Uint8List bytes) async {
     try {
       final content  = utf8.decode(bytes);
-      final rows     = const CsvToListConverter().convert(content);
+      final rows     = Csv().decode(content);
       if (rows.length < 2) {
         return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false, conflictAborted: false, skipped: 0);
       }
@@ -297,7 +297,7 @@ class BackupService {
         w.levelId ?? '', w.difficulty ?? '',
       ]);
     }
-    return utf8.encode(const ListToCsvConverter().convert(rows));
+    return utf8.encode(Csv().encode(rows));
   }
 
   static List<int> _repDetailsCsv(List<RepDetail> details) {
@@ -310,19 +310,19 @@ class BackupService {
         d.peakG, d.isNear ? 1 : 0, d.proximityVal, d.setIndex,
       ]);
     }
-    return utf8.encode(const ListToCsvConverter().convert(rows));
+    return utf8.encode(Csv().encode(rows));
   }
 
   static List<int> _settingsCsv(Map<String, String> map) {
     final rows = <List<dynamic>>[['key', 'value']];
     map.forEach((k, v) => rows.add([k, v]));
-    return utf8.encode(const ListToCsvConverter().convert(rows));
+    return utf8.encode(Csv().encode(rows));
   }
 
   // ── CSV parsers ────────────────────────────────────────────────────────────
 
   static List<Workout> _parseWorkouts(String csv) {
-    final rows = const CsvToListConverter().convert(csv);
+    final rows = Csv().decode(csv);
     if (rows.length < 2) return [];
     return rows.skip(1).map((r) {
       return Workout(
@@ -340,7 +340,7 @@ class BackupService {
   }
 
   static List<RepDetail> _parseRepDetails(String csv) {
-    final rows = const CsvToListConverter().convert(csv);
+    final rows = Csv().decode(csv);
     if (rows.length < 2) return [];
     return rows.skip(1).map((r) {
       return RepDetail(
@@ -356,7 +356,7 @@ class BackupService {
   }
 
   static Map<String, String> _parseSettings(String csv) {
-    final rows = const CsvToListConverter().convert(csv);
+    final rows = Csv().decode(csv);
     if (rows.length < 2) return {};
     final map = <String, String>{};
     for (final r in rows.skip(1)) {

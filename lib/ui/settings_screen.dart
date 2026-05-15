@@ -233,7 +233,7 @@ class SettingsScreen extends StatelessWidget {
     final message = result.checksumMismatch
         ? '$importLine\n${context.tr('checksum_mismatch')}'
         : [importLine, if (result.settings) context.tr('settings_restored'),
-           if (skippedLine != null) skippedLine].join(' ');
+           ?skippedLine].join(' ');
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
