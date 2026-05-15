@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/workout.dart';
 import 'session_detail_screen.dart';
+import 'widgets/monthly_combo_chart.dart';
 
 class RecordScreen extends StatefulWidget {
   final List<Workout> history;
@@ -65,11 +66,11 @@ class _RecordScreenState extends State<RecordScreen> {
         x: i,
         barRods: [
           BarChartRodData(
-            toY: value(data[day] ?? 0),
-            color: (data[day] ?? 0) > 0
+            toY:          value(data[day] ?? 0),
+            color:        (data[day] ?? 0) > 0
                 ? primaryColor
                 : primaryColor.withValues(alpha: 0.08),
-            width: barWidth,
+            width:        barWidth,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
           ),
         ],
@@ -95,7 +96,6 @@ class _RecordScreenState extends State<RecordScreen> {
         w.date.day == day).toList();
     if (sessions.isEmpty) return;
 
-    // Show the most-recent session of that day
     final w = sessions.last;
     Navigator.push<void>(
       context,
@@ -181,7 +181,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 final bw = ((constraints.maxWidth - leftReserved) / days * 0.5)
                     .clamp(1.0, 7.0);
                 final barGroups = _buildBarGroups(data, days, valueFor, bw);
-                return _ComboChart(
+                return MonthlyComboChart(
                   barGroups:  barGroups,
                   spots:      spots,
                   days:       days,
@@ -212,134 +212,6 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 }
 
-// ── Combo bar+line chart ──────────────────────────────────────────────────────
-
-class _ComboChart extends StatelessWidget {
-  final List<BarChartGroupData> barGroups;
-  final List<FlSpot>            spots;
-  final int                     days;
-  final double                  maxY;
-  final void Function(int day)  onBarTap;
-  final String                  yAxisLabel;
-
-  const _ComboChart({
-    required this.barGroups,
-    required this.spots,
-    required this.days,
-    required this.maxY,
-    required this.onBarTap,
-    required this.yAxisLabel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final lineColor = Theme.of(context).colorScheme.secondary;
-
-    final sharedTitles = FlTitlesData(
-      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      leftTitles: AxisTitles(
-        sideTitles: SideTitles(
-          showTitles: true,
-          reservedSize: 40,
-          getTitlesWidget: (value, meta) {
-            if (value == meta.max) return const SizedBox.shrink();
-            final label = value >= 1000
-                ? '${(value / 1000).toStringAsFixed(1)}k'
-                : value.toInt().toString();
-            return Text(
-              label,
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
-              textAlign: TextAlign.right,
-            );
-          },
-        ),
-      ),
-      bottomTitles: AxisTitles(
-        sideTitles: SideTitles(
-          showTitles: true,
-          reservedSize: 22,
-          interval: 1,
-          getTitlesWidget: (value, meta) {
-            final day = value.toInt() + 1;
-            if (day % 5 != 0 || day > days) return const SizedBox.shrink();
-            return Text(
-              '$day',
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
-            );
-          },
-        ),
-      ),
-    );
-
-    return Stack(
-      children: [
-        // ── Bar layer ────────────────────────────────────────────────────────
-        BarChart(
-          BarChartData(
-            barGroups:    barGroups,
-            maxY:         maxY,
-            minY:         0,
-            gridData:     const FlGridData(show: true),
-            borderData:   FlBorderData(show: false),
-            titlesData:   sharedTitles,
-            alignment:    BarChartAlignment.center,
-            groupsSpace:  0,
-            barTouchData: BarTouchData(
-              touchCallback: (FlTouchEvent event, BarTouchResponse? response) {
-                if (event is! FlTapUpEvent) return;
-                if (response?.spot == null) return;
-                onBarTap(response!.spot!.touchedBarGroup.x);
-              },
-              touchTooltipData: BarTouchTooltipData(
-                getTooltipItem: (group, groupIndex, rod, rodIndex) =>
-                    BarTooltipItem(
-                  rod.toY > 0 ? rod.toY.toStringAsFixed(0) : '',
-                  const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ),
-        ),
-        // ── Line overlay ─────────────────────────────────────────────────────
-        if (spots.length >= 2)
-          IgnorePointer(
-            child: LineChart(
-              LineChartData(
-                lineBarsData: [
-                  LineChartBarData(
-                    spots:     spots,
-                    isCurved:  false,
-                    color:     lineColor,
-                    barWidth:  2,
-                    dotData:   FlDotData(
-                      getDotPainter: (spot, percent, bar, index) =>
-                          FlDotCirclePainter(
-                        radius: 3,
-                        color: lineColor,
-                        strokeWidth: 0,
-                        strokeColor: Colors.transparent,
-                      ),
-                    ),
-                    belowBarData: BarAreaData(show: false),
-                  ),
-                ],
-                minX:       -0.5,
-                maxX:       days - 0.5,
-                minY:       0,
-                maxY:       maxY,
-                titlesData: const FlTitlesData(show: false),
-                gridData:   const FlGridData(show: false),
-                borderData: FlBorderData(show: false),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 // ── Tab chip ──────────────────────────────────────────────────────────────────
 
 class _TabChip extends StatelessWidget {
@@ -355,21 +227,22 @@ class _TabChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final scheme  = Theme.of(context).colorScheme;
+    final primary = scheme.primary;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? primary : Colors.transparent,
+          color:        selected ? primary : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? primary : Colors.grey.shade400),
+          border:       Border.all(color: selected ? primary : scheme.outline),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color:      selected ? Colors.white : Colors.grey.shade600,
+            color:      selected ? scheme.onPrimary : scheme.onSurfaceVariant,
             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
             fontSize:   13,
           ),

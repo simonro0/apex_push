@@ -142,6 +142,14 @@ class AppLocalizations {
       'stat_avg':           'Ø',
       'stat_var':           'Var',
       'stat_diff_label':    'Δ zwischen Wdh.',
+      // ── Weekday abbreviations (0 = Monday … 6 = Sunday) ──────────────────
+      'weekday_0': 'Mo',
+      'weekday_1': 'Di',
+      'weekday_2': 'Mi',
+      'weekday_3': 'Do',
+      'weekday_4': 'Fr',
+      'weekday_5': 'Sa',
+      'weekday_6': 'So',
       // ── Weekly overview ───────────────────────────────────────────────────
       'week_overview': 'Diese Woche',
       'week_total':    '{n} Wdh.',
@@ -163,6 +171,14 @@ class AppLocalizations {
           'Aktiviere die tägliche Erinnerung, um eine Benachrichtigung zu erhalten.',
       'notif_title': 'Zeit für dein Training!',
       'notif_body': 'Starte jetzt deine Liegestütze und erreiche dein Ziel.',
+      // ── About ─────────────────────────────────────────────────────────────
+      'about':           'Über die App',
+      'version':         'Version',
+      'impressum':       'Impressum',
+      'impressum_text':  'ApexPush ist eine private, nicht-kommerzielle App zur Unterstützung deines Liegestütz-Trainings.',
+      'support_the_app': 'App unterstützen',
+      'donation_text':   'Wenn dir die App gefällt, freue ich mich über eine kleine Spende.',
+      'donate':          'Spenden',
     },
     'en': {
       // ── App / Dashboard ──────────────────────────────────────────────────
@@ -298,6 +314,14 @@ class AppLocalizations {
       'stat_avg':           'Avg',
       'stat_var':           'Var',
       'stat_diff_label':    'Δ between reps',
+      // ── Weekday abbreviations (0 = Monday … 6 = Sunday) ──────────────────
+      'weekday_0': 'Mo',
+      'weekday_1': 'Tu',
+      'weekday_2': 'We',
+      'weekday_3': 'Th',
+      'weekday_4': 'Fr',
+      'weekday_5': 'Sa',
+      'weekday_6': 'Su',
       // ── Weekly overview ───────────────────────────────────────────────────
       'week_overview': 'This Week',
       'week_total':    '{n} reps',
@@ -319,6 +343,14 @@ class AppLocalizations {
           'Enable the daily reminder to receive a notification.',
       'notif_title': 'Time for your workout!',
       'notif_body': 'Start your push-ups now and reach your goal.',
+      // ── About ─────────────────────────────────────────────────────────────
+      'about':           'About',
+      'version':         'Version',
+      'impressum':       'Legal Notice',
+      'impressum_text':  'ApexPush is a private, non-commercial app to support your push-up training.',
+      'support_the_app': 'Support the App',
+      'donation_text':   'If you enjoy the app, a small donation is always appreciated.',
+      'donate':          'Donate',
     },
   };
 
