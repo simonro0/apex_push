@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../logic/audio_service.dart';
 import '../logic/settings_provider.dart';
 import '../logic/workout_provider.dart';
+import 'about_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -138,6 +139,17 @@ class SettingsScreen extends StatelessWidget {
             title: context.t('clear_all_data'),
             titleColor: Colors.red,
             onTap: () => _confirmClearAll(context),
+          ),
+          const Divider(height: 1),
+
+          // ── About ─────────────────────────────────────────────────────────
+          _SettingsTile(
+            icon: Icons.info_outline,
+            title: context.t('about'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AboutScreen()),
+            ),
           ),
           const Divider(height: 1),
         ],
