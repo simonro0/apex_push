@@ -110,6 +110,17 @@ class _RecordScreenState extends State<RecordScreen> {
     );
   }
 
+  String _sessionSubtitle(BuildContext ctx, Workout w) {
+    final reps = '${w.count} ${ctx.t('reps_short')}';
+    final h    = w.date.hour.toString().padLeft(2, '0');
+    final m    = w.date.minute.toString().padLeft(2, '0');
+    // puud imports have no time; don't show a misleading 00:00.
+    if (w.date.hour == 0 && w.date.minute == 0 && w.date.second == 0) {
+      return reps;
+    }
+    return '$reps · $h:$m';
+  }
+
   void _showSessionPicker(List<Workout> sessions) {
     showModalBottomSheet<void>(
       context: context,
@@ -133,7 +144,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 leading: Icon(Icons.fitness_center,
                     color: Theme.of(context).colorScheme.primary),
                 title: Text(label),
-                subtitle: Text('${w.count} ${context.t('reps_short')}'),
+                subtitle: Text(_sessionSubtitle(context, w)),
                 onTap: () {
                   Navigator.pop(sheetCtx);
                   _openSession(w);
