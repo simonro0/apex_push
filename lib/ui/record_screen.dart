@@ -151,7 +151,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 },
               );
             }),
-            const SizedBox(height: 8),
+            SizedBox(height: 8 + MediaQuery.of(sheetCtx).padding.bottom),
           ],
         );
       },
