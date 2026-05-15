@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/settings_provider.dart';
@@ -40,6 +41,7 @@ class AppLocalizations {
       'settings_restored': 'Einstellungen wiederhergestellt.',
       'backup_saved_to': 'Gespeichert: {path}',
       'checksum_mismatch': 'Prüfsumme ungültig – Datei möglicherweise verändert!',
+      'select_session': 'Sitzung auswählen',
       'import_conflict_aborted': 'Import abgebrochen – Konflikt bei vorhandenen Datensätzen.',
       'import_skipped': '{n} bereits vorhandene Einträge übersprungen.',
       'import_puud': '.puud importieren',
@@ -215,6 +217,7 @@ class AppLocalizations {
       'settings_restored': 'Settings restored.',
       'backup_saved_to': 'Saved: {path}',
       'checksum_mismatch': 'Checksum invalid — file may have been modified!',
+      'select_session': 'Select session',
       'import_conflict_aborted': 'Import aborted — conflict with existing records.',
       'import_skipped': '{n} already present entries skipped.',
       'import_puud': 'Import .puud',
@@ -354,31 +357,16 @@ class AppLocalizations {
     },
   };
 
-  static const _weekdays = {
-    'de': ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
-    'en': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-  };
-
-  static const _months = {
-    'de': ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun',
-           'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'],
-    'en': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-  };
-
   static String translate(String key, String locale) =>
       _t[locale]?[key] ?? _t['de']![key] ?? key;
 
-  static String formatDate(DateTime d, String locale) {
-    final wd = _weekdays[locale]![d.weekday - 1];
-    final mo = _months[locale]![d.month - 1];
-    return '$wd, ${d.day}. $mo ${d.year}';
-  }
+  /// Formats a date as e.g. "Di., 15. Mai 2026" (de) or "Tue, May 15, 2026" (en).
+  static String formatDate(DateTime d, String locale) =>
+      DateFormat.yMMMEd(locale).format(d);
 
-  static String formatMonth(DateTime d, String locale) {
-    final mo = _months[locale]![d.month - 1];
-    return '$mo ${d.year}';
-  }
+  /// Formats a month as e.g. "Mai 2026" (de) or "May 2026" (en).
+  static String formatMonth(DateTime d, String locale) =>
+      DateFormat.yMMM(locale).format(d);
 }
 
 extension AppLocalizationsExt on BuildContext {

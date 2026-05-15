@@ -2,6 +2,7 @@ import 'package:apex_push/ui/dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'logic/audio_service.dart';
@@ -14,6 +15,8 @@ void main() async {
   // Keep splash visible while orientation lock and providers initialise.
   FlutterNativeSplash.preserve(widgetsBinding: binding);
 
+  await initializeDateFormatting('de');
+  await initializeDateFormatting('en');
   await AudioService.instance.init();
   await NotificationService.instance.init();
 
