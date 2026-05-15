@@ -66,6 +66,23 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                 ?[widget.workout.difficulty] ??
             [];
       }
+    } else if (widget.splits.isEmpty && details.isEmpty &&
+        widget.workout.levelId != null && widget.workout.difficulty != null) {
+      // Puud imports have no rep_details. Reconstruct set splits from the
+      // programme targets and the recorded total (workout.count).
+      final targets =
+          TrainingData.programs[widget.workout.levelId]
+              ?[widget.workout.difficulty] ??
+          [];
+      if (targets.isNotEmpty) {
+        var remaining = widget.workout.count;
+        reconstructedSplits = targets.map((t) {
+          final done = remaining.clamp(0, t);
+          remaining -= done;
+          return done;
+        }).toList();
+        reconstructedTargets = targets;
+      }
     }
 
     if (mounted) {
