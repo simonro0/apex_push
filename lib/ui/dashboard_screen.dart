@@ -184,7 +184,7 @@ class _ActiveProgramTile extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const Spacer(),
-            const Icon(Icons.edit_outlined, size: 16, color: Colors.grey),
+            Icon(Icons.edit_outlined, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ],
         ),
       ),

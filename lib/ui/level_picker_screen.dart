@@ -214,7 +214,7 @@ class _DiffChip extends StatelessWidget {
         decoration: BoxDecoration(
           color:        selected ? color.withValues(alpha: 0.2) : Colors.transparent,
           border:       Border.all(
-              color: selected ? color : Colors.grey.shade400),
+              color: selected ? color : Theme.of(context).colorScheme.outline),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
@@ -222,7 +222,7 @@ class _DiffChip extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize:   11,
-            color:      selected ? color : Colors.grey.shade600,
+            color:      selected ? color : Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
           ),
         ),

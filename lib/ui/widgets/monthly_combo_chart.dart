@@ -95,7 +95,7 @@ class MonthlyComboChart extends StatelessWidget {
                 getTooltipItem: (group, groupIndex, rod, rodIndex) =>
                     BarTooltipItem(
                   rod.toY > 0 ? rod.toY.toStringAsFixed(0) : '',
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  TextStyle(color: Theme.of(context).colorScheme.onInverseSurface, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

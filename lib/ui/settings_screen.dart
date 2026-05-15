@@ -257,8 +257,8 @@ class SettingsScreen extends StatelessWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () => Navigator.pop(context, true),
             child: Text(context.tr('delete')),
@@ -575,7 +575,7 @@ class _SensitivityTile extends StatelessWidget {
                       color: selected ? primary : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: selected ? primary : Colors.grey.shade400,
+                        color: selected ? primary : Theme.of(context).colorScheme.outline,
                       ),
                     ),
                     alignment: Alignment.center,
@@ -584,7 +584,7 @@ class _SensitivityTile extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                        color: selected ? Colors.white : Colors.grey.shade600,
+                        color: selected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
