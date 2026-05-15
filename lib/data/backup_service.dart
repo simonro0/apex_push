@@ -193,12 +193,16 @@ class BackupService {
       }
 
       // ── Insert rep_details for new workouts only ────────────────────────────
+      // Use idMap.containsKey as the single source of truth: only rep_details
+      // whose workout was actually just inserted are included. This avoids
+      // duplicating details for workouts that were skipped via deduplication.
       var repCount = 0;
       if (repDetails != null && repDetails.isNotEmpty) {
         final toImportReps = repDetails
-            .where((d) => !skipIds.contains(d.workoutId))
+            .where((d) => idMap.containsKey(d.workoutId))
             .map((d) => RepDetail(
-                  workoutId:    idMap[d.workoutId] ?? d.workoutId,
+                  workoutId:    idMap[d.workoutId]!,
+                  setIndex:     d.setIndex,
                   repIndex:     d.repIndex,
                   timestampMs:  d.timestampMs,
                   peakG:        d.peakG,
