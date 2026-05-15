@@ -8,11 +8,8 @@ import '../data/database_helper.dart';
 import '../l10n/app_localizations.dart';
 import '../logic/settings_provider.dart';
 import '../models/rep_detail.dart';
+import '../models/training_data.dart';
 import '../models/workout.dart';
-
-// Weekday abbreviations used by _WeeklyCard.
-const _weekdaysDe = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-const _weekdaysEn = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 class SessionDetailScreen extends StatefulWidget {
   final Workout        workout;
@@ -35,7 +32,9 @@ class SessionDetailScreen extends StatefulWidget {
 }
 
 class _SessionDetailScreenState extends State<SessionDetailScreen> {
-  List<RepDetail> _repDetails = [];
+  List<RepDetail> _repDetails          = [];
+  List<int>       _reconstructedSplits  = [];
+  List<int>       _reconstructedTargets = [];
 
   @override
   void initState() {
@@ -47,7 +46,35 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     final id = widget.workout.id;
     if (id == null) return;
     final details = await DatabaseHelper.instance.getRepDetailsForWorkout(id);
-    if (mounted) setState(() => _repDetails = details);
+
+    List<int> reconstructedSplits  = [];
+    List<int> reconstructedTargets = [];
+
+    if (widget.splits.isEmpty && details.isNotEmpty) {
+      // Group reps by set_index to reconstruct per-set counts.
+      final setMap = <int, int>{};
+      for (final d in details) {
+        setMap[d.setIndex] = (setMap[d.setIndex] ?? 0) + 1;
+      }
+      if (setMap.isNotEmpty) {
+        final maxSet = setMap.keys.reduce(max);
+        reconstructedSplits = List.generate(maxSet + 1, (i) => setMap[i] ?? 0);
+      }
+      if (widget.workout.levelId != null && widget.workout.difficulty != null) {
+        reconstructedTargets =
+            TrainingData.programs[widget.workout.levelId]
+                ?[widget.workout.difficulty] ??
+            [];
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _repDetails          = details;
+        _reconstructedSplits  = reconstructedSplits;
+        _reconstructedTargets = reconstructedTargets;
+      });
+    }
   }
 
   @override
@@ -60,6 +87,9 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     final levelStr = widget.workout.levelId != null
         ? '${widget.workout.levelId} (${widget.workout.difficulty})'
         : context.t('free_training_label');
+
+    final splits     = widget.splits.isNotEmpty ? widget.splits : _reconstructedSplits;
+    final targetReps = widget.targetReps.isNotEmpty ? widget.targetReps : _reconstructedTargets;
 
     return Scaffold(
       appBar: AppBar(title: Text(context.t('training_completed'))),
@@ -77,7 +107,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
             calories:     context.tp('kcal_approx', {'n': '$calories'}),
             verifiedReps: widget.verifiedReps,
           ),
-          if (widget.splits.isNotEmpty) ...[
+          if (splits.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(
               context.t('sets_section'),
@@ -86,9 +116,9 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            ...List.generate(widget.splits.length, (i) {
-              final target  = i < widget.targetReps.length ? widget.targetReps[i] : null;
-              final reached = widget.splits[i];
+            ...List.generate(splits.length, (i) {
+              final target  = i < targetReps.length ? targetReps[i] : null;
+              final reached = splits[i];
               final ok      = target == null || reached >= target;
               return _SetRow(
                 label:   context.tp('set_n', {'n': '${i + 1}'}),
@@ -187,7 +217,7 @@ class _Row extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 10),
-          Text('$label:', style: const TextStyle(color: Colors.grey)),
+          Text('$label:', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(value,
@@ -226,9 +256,9 @@ class _SetRow extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w500)),
           ),
           if (target != null) ...[
-            Text(target!, style: const TextStyle(color: Colors.grey)),
+            Text(target!, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             const SizedBox(width: 10),
-            const Text('|', style: TextStyle(color: Colors.grey)),
+            Text('|', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             const SizedBox(width: 10),
           ],
           Text(
@@ -263,7 +293,6 @@ class _WeeklyCard extends StatelessWidget {
     final today  = DateTime(baseDate.year, baseDate.month, baseDate.day);
     final monday = today.subtract(Duration(days: today.weekday - 1));
 
-    // Aggregate reps by day-of-week offset (0 = Monday)
     final daily = <int, int>{};
     for (final w in history) {
       final d    = DateTime(w.date.year, w.date.month, w.date.day);
@@ -272,12 +301,10 @@ class _WeeklyCard extends StatelessWidget {
         daily[diff] = (daily[diff] ?? 0) + w.count;
       }
     }
-    final weekTotal  = daily.values.fold(0, (s, v) => s + v);
+    final weekTotal   = daily.values.fold(0, (s, v) => s + v);
     final todayOffset = today.difference(monday).inDays;
-
-    final locale = context.watch<SettingsProvider>().locale;
-    final labels = locale == 'de' ? _weekdaysDe : _weekdaysEn;
-    final primary = Theme.of(context).colorScheme.primary;
+    final primary     = Theme.of(context).colorScheme.primary;
+    final hintColor   = Theme.of(context).colorScheme.onSurfaceVariant;
 
     return Card(
       child: Padding(
@@ -314,12 +341,11 @@ class _WeeklyCard extends StatelessWidget {
                 return Column(
                   children: [
                     Text(
-                      labels[i],
+                      context.t('weekday_$i'),
                       style: TextStyle(
-                        fontSize: 11,
-                        color: isToday ? primary : Colors.grey,
-                        fontWeight:
-                            isToday ? FontWeight.bold : FontWeight.normal,
+                        fontSize:   11,
+                        color:      isToday ? primary : hintColor,
+                        fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -342,9 +368,9 @@ class _WeeklyCard extends StatelessWidget {
                           ? Text(
                               _compact(reps),
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize:   10,
                                 fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onPrimary,
+                                color:      Theme.of(context).colorScheme.onPrimary,
                               ),
                             )
                           : null,
@@ -391,77 +417,11 @@ class _SensorSection extends StatelessWidget {
     return result;
   }
 
-  Widget _miniChart(
-    BuildContext context,
-    List<FlSpot> spots,
-    String label,
-    Color color,
-  ) {
-    if (spots.isEmpty) return const SizedBox.shrink();
-    final rawMax = spots.map((s) => s.y).reduce(max);
-    final maxY   = (rawMax * 1.2).clamp(0.1, double.infinity);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-        const SizedBox(height: 4),
-        SizedBox(
-          height: 90,
-          child: LineChart(
-            LineChartData(
-              lineBarsData: [
-                LineChartBarData(
-                  spots:     spots,
-                  isCurved:  false,
-                  color:     color,
-                  barWidth:  1.5,
-                  dotData:   const FlDotData(show: false),
-                  belowBarData: BarAreaData(
-                    show:  true,
-                    color: color.withValues(alpha: 0.08),
-                  ),
-                ),
-              ],
-              minY:  0,
-              maxY:  maxY,
-              titlesData: FlTitlesData(
-                topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles:   true,
-                    reservedSize: 32,
-                    getTitlesWidget: (v, m) => Text(
-                      v.toStringAsFixed(1),
-                      style: const TextStyle(fontSize: 8, color: Colors.grey),
-                    ),
-                  ),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles:   true,
-                    reservedSize: 16,
-                    getTitlesWidget: (v, m) => Text(
-                      '${v.toInt()}s',
-                      style: const TextStyle(fontSize: 8, color: Colors.grey),
-                    ),
-                  ),
-                ),
-              ),
-              gridData:   const FlGridData(show: false),
-              borderData: FlBorderData(show: false),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final primary   = Theme.of(context).colorScheme.primary;
     final secondary = Theme.of(context).colorScheme.secondary;
+    final hintColor = Theme.of(context).colorScheme.onSurfaceVariant;
 
     final peakSpots = details
         .map((d) => FlSpot(d.timestampMs / 1000.0, d.peakG))
@@ -470,12 +430,30 @@ class _SensorSection extends StatelessWidget {
         .map((d) => FlSpot(d.timestampMs / 1000.0, d.proximityVal))
         .toList();
 
-    final peakDeltas  = _deltas(details.map((d) => d.peakG).toList());
-    final proxDeltas  = _deltas(details.map((d) => d.proximityVal).toList());
-    final peakStats   = _stats(peakDeltas);
-    final proxStats   = _stats(proxDeltas);
+    final peakDeltas = _deltas(details.map((d) => d.peakG).toList());
+    final proxDeltas = _deltas(details.map((d) => d.proximityVal).toList());
+    final peakStats  = _stats(peakDeltas);
+    final proxStats  = _stats(proxDeltas);
 
     String fmt(double v) => v.toStringAsFixed(2);
+
+    // Local helper so header style can reference hintColor from context.
+    TableRow statRow(
+      String label, String mn, String mx, String avg, String vr, {
+      bool isHeader = false,
+    }) {
+      final style = isHeader
+          ? TextStyle(fontSize: 10, color: hintColor, fontWeight: FontWeight.bold)
+          : const TextStyle(fontSize: 10);
+      return TableRow(
+        children: [label, mn, mx, avg, vr]
+            .map((s) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(s, style: style),
+                ))
+            .toList(),
+      );
+    }
 
     return Card(
       child: Theme(
@@ -487,21 +465,20 @@ class _SensorSection extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
           ),
-          initiallyExpanded: false,
+          initiallyExpanded: true,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _miniChart(context, peakSpots, context.t('peak_g_label'), primary),
+                  _MiniLineChart(spots: peakSpots, label: context.t('peak_g_label'),    color: primary),
                   const SizedBox(height: 12),
-                  _miniChart(context, proxSpots, context.t('proximity_label'), secondary),
+                  _MiniLineChart(spots: proxSpots, label: context.t('proximity_label'), color: secondary),
                   const SizedBox(height: 16),
-                  // ── Stats table ─────────────────────────────────────────────
                   Text(
                     context.t('stat_diff_label'),
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    style: TextStyle(fontSize: 11, color: hintColor),
                   ),
                   const SizedBox(height: 6),
                   Table(
@@ -513,15 +490,15 @@ class _SensorSection extends StatelessWidget {
                       4: FlexColumnWidth(1.5),
                     },
                     children: [
-                      _statRow('', context.t('stat_min'), context.t('stat_max'),
+                      statRow('', context.t('stat_min'), context.t('stat_max'),
                           context.t('stat_avg'), context.t('stat_var'),
                           isHeader: true),
-                      _statRow(
+                      statRow(
                         context.t('peak_g_label'),
                         fmt(peakStats.min), fmt(peakStats.max),
                         fmt(peakStats.avg), fmt(peakStats.variance),
                       ),
-                      _statRow(
+                      statRow(
                         context.t('proximity_label'),
                         fmt(proxStats.min), fmt(proxStats.max),
                         fmt(proxStats.avg), fmt(proxStats.variance),
@@ -536,21 +513,81 @@ class _SensorSection extends StatelessWidget {
       ),
     );
   }
+}
 
-  static TableRow _statRow(
-    String label, String mn, String mx, String avg, String vr, {
-    bool isHeader = false,
-  }) {
-    TextStyle style = isHeader
-        ? const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)
-        : const TextStyle(fontSize: 10);
-    return TableRow(
-      children: [label, mn, mx, avg, vr]
-          .map((s) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text(s, style: style),
-              ))
-          .toList(),
+// ── Mini line chart ───────────────────────────────────────────────────────────
+
+class _MiniLineChart extends StatelessWidget {
+  final List<FlSpot> spots;
+  final String       label;
+  final Color        color;
+
+  const _MiniLineChart({
+    required this.spots,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (spots.isEmpty) return const SizedBox.shrink();
+    final rawMax = spots.map((s) => s.y).reduce(max);
+    final maxY   = (rawMax * 1.2).clamp(0.1, double.infinity);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 90,
+          child: LineChart(
+            LineChartData(
+              lineBarsData: [
+                LineChartBarData(
+                  spots:        spots,
+                  isCurved:     false,
+                  color:        color,
+                  barWidth:     1.5,
+                  dotData:      const FlDotData(show: false),
+                  belowBarData: BarAreaData(
+                    show:  true,
+                    color: color.withValues(alpha: 0.08),
+                  ),
+                ),
+              ],
+              minY: 0,
+              maxY: maxY,
+              titlesData: FlTitlesData(
+                topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles:   true,
+                    reservedSize: 32,
+                    getTitlesWidget: (v, m) => Text(
+                      v.toStringAsFixed(1),
+                      style: TextStyle(fontSize: 8, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles:   true,
+                    reservedSize: 16,
+                    getTitlesWidget: (v, m) => Text(
+                      '${v.toInt()}s',
+                      style: TextStyle(fontSize: 8, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+                ),
+              ),
+              gridData:   const FlGridData(show: false),
+              borderData: FlBorderData(show: false),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

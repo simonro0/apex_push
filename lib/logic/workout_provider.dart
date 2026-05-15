@@ -122,6 +122,7 @@ class WorkoutProvider with ChangeNotifier {
     _repBuffer.add(RepDetail(
       workoutId:    0, // filled in by saveWorkout after DB insert
       repIndex:     _currentSessionCount,
+      setIndex:     _sessionSplits.length,
       timestampMs:  _startTime != null
           ? DateTime.now().difference(_startTime!).inMilliseconds
           : 0,

@@ -19,7 +19,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), filePath);
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -45,6 +45,7 @@ class DatabaseHelper {
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         workout_id   INTEGER NOT NULL,
         rep_index    INTEGER NOT NULL,
+        set_index    INTEGER NOT NULL DEFAULT 0,
         timestamp_ms INTEGER NOT NULL,
         peak_g         REAL    NOT NULL,
         is_near        INTEGER NOT NULL DEFAULT 0,
@@ -79,6 +80,11 @@ class DatabaseHelper {
     if (oldVersion < 4) {
       await db.execute(
         'ALTER TABLE rep_details ADD COLUMN proximity_val REAL NOT NULL DEFAULT 0',
+      );
+    }
+    if (oldVersion < 5) {
+      await db.execute(
+        'ALTER TABLE rep_details ADD COLUMN set_index INTEGER NOT NULL DEFAULT 0',
       );
     }
   }
@@ -121,6 +127,7 @@ class DatabaseHelper {
       batch.insert('rep_details', {
         'workout_id':    workoutId,
         'rep_index':     d.repIndex,
+        'set_index':     d.setIndex,
         'timestamp_ms':  d.timestampMs,
         'peak_g':        d.peakG,
         'is_near':       d.isNear ? 1 : 0,
@@ -162,6 +169,7 @@ class DatabaseHelper {
         batch.insert('rep_details', {
           'workout_id':    d.workoutId,
           'rep_index':     d.repIndex,
+          'set_index':     d.setIndex,
           'timestamp_ms':  d.timestampMs,
           'peak_g':        d.peakG,
           'is_near':       d.isNear ? 1 : 0,

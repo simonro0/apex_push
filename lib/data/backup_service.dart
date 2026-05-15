@@ -298,12 +298,12 @@ class BackupService {
 
   static List<int> _repDetailsCsv(List<RepDetail> details) {
     final rows = <List<dynamic>>[
-      ['workout_id', 'rep_index', 'timestamp_ms', 'peak_g', 'is_near', 'proximity_val'],
+      ['workout_id', 'rep_index', 'timestamp_ms', 'peak_g', 'is_near', 'proximity_val', 'set_index'],
     ];
     for (final d in details) {
       rows.add([
         d.workoutId, d.repIndex, d.timestampMs,
-        d.peakG, d.isNear ? 1 : 0, d.proximityVal,
+        d.peakG, d.isNear ? 1 : 0, d.proximityVal, d.setIndex,
       ]);
     }
     return utf8.encode(const ListToCsvConverter().convert(rows));
@@ -346,6 +346,7 @@ class BackupService {
         peakG:        _dbl(r[3]) ?? 0.0,
         isNear:       r[4] == 1 || r[4] == '1',
         proximityVal: r.length > 5 ? (_dbl(r[5]) ?? 0.0) : 0.0,
+        setIndex:     r.length > 6 ? (_int(r[6]) ?? 0) : 0,
       );
     }).toList();
   }
