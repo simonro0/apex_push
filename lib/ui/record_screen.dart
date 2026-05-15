@@ -96,12 +96,54 @@ class _RecordScreenState extends State<RecordScreen> {
         w.date.day == day).toList();
     if (sessions.isEmpty) return;
 
-    final w = sessions.last;
+    if (sessions.length == 1) {
+      _openSession(sessions.first);
+    } else {
+      _showSessionPicker(sessions);
+    }
+  }
+
+  void _openSession(Workout w) {
     Navigator.push<void>(
       context,
-      MaterialPageRoute(
-        builder: (_) => SessionDetailScreen(workout: w),
-      ),
+      MaterialPageRoute(builder: (_) => SessionDetailScreen(workout: w)),
+    );
+  }
+
+  void _showSessionPicker(List<Workout> sessions) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetCtx) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                context.t('select_session'),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            const Divider(height: 1),
+            ...sessions.map((w) {
+              final label = w.isFreeTraining
+                  ? context.t('free_training_label')
+                  : '${w.levelId} – ${w.difficulty}';
+              return ListTile(
+                leading: Icon(Icons.fitness_center,
+                    color: Theme.of(context).colorScheme.primary),
+                title: Text(label),
+                subtitle: Text('${w.count} ${context.t('reps_short')}'),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _openSession(w);
+                },
+              );
+            }),
+            const SizedBox(height: 8),
+          ],
+        );
+      },
     );
   }
 
