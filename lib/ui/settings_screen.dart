@@ -191,6 +191,16 @@ class SettingsScreen extends StatelessWidget {
       );
       return;
     }
+    if (result.conflictAborted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr('import_conflict_aborted')),
+          backgroundColor: Colors.red.shade800,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+      return;
+    }
     if (result.workouts == 0 && !result.settings) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.tr('no_data_imported'))),
@@ -205,10 +215,13 @@ class SettingsScreen extends StatelessWidget {
       'w': '${result.workouts}',
       'r': '${result.repDetails}',
     });
+    final skippedLine = result.skipped > 0
+        ? context.tr('import_skipped').replaceAll('{n}', '${result.skipped}')
+        : null;
     final message = result.checksumMismatch
         ? '$importLine\n${context.tr('checksum_mismatch')}'
-        : [importLine, if (result.settings) context.tr('settings_restored')]
-            .join(' ');
+        : [importLine, if (result.settings) context.tr('settings_restored'),
+           if (skippedLine != null) skippedLine].join(' ');
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

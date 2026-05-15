@@ -12,7 +12,14 @@ import '../models/rep_detail.dart';
 import '../models/workout.dart';
 import 'database_helper.dart';
 
-typedef BackupResult = ({int workouts, int repDetails, bool settings, bool checksumMismatch});
+typedef BackupResult = ({
+  int  workouts,
+  int  repDetails,
+  bool settings,
+  bool checksumMismatch,
+  bool conflictAborted,   // import aborted because data differs for an existing ID
+  int  skipped,           // workouts already present with identical data
+});
 
 class BackupService {
   // ── Export ─────────────────────────────────────────────────────────────────
@@ -58,11 +65,11 @@ class BackupService {
         withData: true,
       );
     } catch (_) {
-      return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false);
+      return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false, conflictAborted: false, skipped: 0);
     }
 
     if (result == null) {
-      return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false);
+      return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false, conflictAborted: false, skipped: 0);
     }
 
     final file = result.files.single;
@@ -72,7 +79,7 @@ class BackupService {
         (file.path != null ? await File(file.path!).readAsBytes() : null);
 
     if (bytes == null) {
-      return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false);
+      return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false, conflictAborted: false, skipped: 0);
     }
 
     // Detect format by ZIP magic bytes (PK\x03\x04) — do not rely on extension
@@ -117,7 +124,7 @@ class BackupService {
         }
       }
 
-      // Verify checksums — missing checksums.txt also counts as unverified
+      // ── Checksum verification ────────────────────────────────────────────────
       var integrityOk = false;
       if (storedChecksums != null) {
         var allMatch = true;
@@ -133,11 +140,43 @@ class BackupService {
       }
       final checksumMismatch = !integrityOk;
 
-      // Insert workouts one-by-one to capture new DB IDs.
-      // Force isVerified=false when integrity cannot be confirmed.
-      final idMap        = <int, int>{};
-      var   workoutCount = 0;
+      // ── Conflict detection ──────────────────────────────────────────────────
+      // Load existing workouts and index by ID for O(1) lookup.
+      final existingAll = await DatabaseHelper.instance.readAllWorkouts();
+      final existingMap = <int, Workout>{
+        for (final w in existingAll) if (w.id != null) w.id!: w,
+      };
+
+      final toImport  = <Workout>[];
+      final skipIds   = <int>{};  // backup IDs that are already present
+      var   skipped   = 0;
+      bool  conflict  = false;
+
       for (final w in workouts ?? <Workout>[]) {
+        if (w.id == null) {
+          toImport.add(w);
+          continue;
+        }
+        final existing = existingMap[w.id!];
+        if (existing == null) {
+          toImport.add(w);
+        } else if (_workoutsMatch(existing, w)) {
+          skipIds.add(w.id!);
+          skipped++;
+        } else {
+          conflict = true;
+          break;
+        }
+      }
+
+      if (conflict) {
+        return (workouts: 0, repDetails: 0, settings: false,
+                checksumMismatch: false, conflictAborted: true, skipped: 0);
+      }
+
+      // ── Insert new workouts ─────────────────────────────────────────────────
+      final idMap = <int, int>{};
+      for (final w in toImport) {
         final newW = Workout(
           date:            w.date,
           count:           w.count,
@@ -151,35 +190,39 @@ class BackupService {
         );
         final newId = await DatabaseHelper.instance.createWorkout(newW);
         if (w.id != null) idMap[w.id!] = newId;
-        workoutCount++;
       }
 
-      // Insert rep_details with remapped workout_ids
+      // ── Insert rep_details for new workouts only ────────────────────────────
       var repCount = 0;
       if (repDetails != null && repDetails.isNotEmpty) {
-        final remapped = repDetails.map((d) => RepDetail(
-          workoutId:    idMap[d.workoutId] ?? d.workoutId,
-          repIndex:     d.repIndex,
-          timestampMs:  d.timestampMs,
-          peakG:        d.peakG,
-          isNear:       d.isNear,
-          proximityVal: d.proximityVal,
-        )).toList();
-        await DatabaseHelper.instance.insertRepDetailsBatch(remapped);
-        repCount = remapped.length;
+        final toImportReps = repDetails
+            .where((d) => !skipIds.contains(d.workoutId))
+            .map((d) => RepDetail(
+                  workoutId:    idMap[d.workoutId] ?? d.workoutId,
+                  repIndex:     d.repIndex,
+                  timestampMs:  d.timestampMs,
+                  peakG:        d.peakG,
+                  isNear:       d.isNear,
+                  proximityVal: d.proximityVal,
+                ))
+            .toList();
+        await DatabaseHelper.instance.insertRepDetailsBatch(toImportReps);
+        repCount = toImportReps.length;
       }
 
-      // Restore settings
+      // ── Restore settings ────────────────────────────────────────────────────
       var settingsRestored = false;
       if (settingsMap != null) {
         await settingsProvider.restoreFromBackup(settingsMap);
         settingsRestored = true;
       }
 
-      return (workouts: workoutCount, repDetails: repCount,
-              settings: settingsRestored, checksumMismatch: checksumMismatch);
+      return (workouts: toImport.length, repDetails: repCount,
+              settings: settingsRestored, checksumMismatch: checksumMismatch,
+              conflictAborted: false, skipped: skipped);
     } catch (_) {
-      return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false);
+      return (workouts: 0, repDetails: 0, settings: false,
+              checksumMismatch: false, conflictAborted: false, skipped: 0);
     }
   }
 
@@ -190,16 +233,16 @@ class BackupService {
       final content  = utf8.decode(bytes);
       final rows     = const CsvToListConverter().convert(content);
       if (rows.length < 2) {
-        return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false);
+        return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false, conflictAborted: false, skipped: 0);
       }
       final workouts = rows.skip(1).map((r) => Workout.fromCsv(r)).toList();
       if (workouts.isEmpty) {
-        return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false);
+        return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false, conflictAborted: false, skipped: 0);
       }
       await DatabaseHelper.instance.batchInsert(workouts);
-      return (workouts: workouts.length, repDetails: 0, settings: false, checksumMismatch: false);
+      return (workouts: workouts.length, repDetails: 0, settings: false, checksumMismatch: false, conflictAborted: false, skipped: 0);
     } catch (_) {
-      return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false);
+      return (workouts: 0, repDetails: 0, settings: false, checksumMismatch: false, conflictAborted: false, skipped: 0);
     }
   }
 
@@ -316,6 +359,16 @@ class BackupService {
     }
     return map;
   }
+
+  // ── Conflict helper ────────────────────────────────────────────────────────
+
+  static bool _workoutsMatch(Workout a, Workout b) =>
+      a.date == b.date &&
+      a.count == b.count &&
+      a.durationSeconds == b.durationSeconds &&
+      a.isFreeTraining == b.isFreeTraining &&
+      a.levelId == b.levelId &&
+      a.difficulty == b.difficulty;
 
   // ── Tiny converters ────────────────────────────────────────────────────────
 
