@@ -196,10 +196,27 @@ class WorkoutProvider with ChangeNotifier {
   /// Imports from a .puud backup file. Returns the number of imported workouts,
   /// or -1 if the user cancelled the file picker.
   Future<int> importFromPuud() async {
-    final workouts = await PuudImportService.importFromPuud();
-    if (workouts == null) return -1;
-    if (workouts.isEmpty) return 0;
-    await saveMultipleWorkouts(workouts);
-    return workouts.length;
+    final records = await PuudImportService.importFromPuud();
+    if (records == null) return -1;
+    if (records.isEmpty) return 0;
+    for (final r in records) {
+      final id = await DatabaseHelper.instance.createWorkout(r.workout);
+      if (r.repDetails.isNotEmpty) {
+        final details = r.repDetails
+            .map((d) => RepDetail(
+                  workoutId:    id,
+                  setIndex:     d.setIndex,
+                  repIndex:     d.repIndex,
+                  timestampMs:  d.timestampMs,
+                  peakG:        d.peakG,
+                  isNear:       d.isNear,
+                  proximityVal: d.proximityVal,
+                ))
+            .toList();
+        await DatabaseHelper.instance.insertRepDetailsBatch(details);
+      }
+    }
+    await loadHistoryFromDb();
+    return records.length;
   }
 }
