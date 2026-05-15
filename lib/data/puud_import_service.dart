@@ -11,9 +11,12 @@ import '../models/workout.dart';
 ///
 /// A .puud file is a ZIP archive containing PushUps_Mos.db (SQLite).
 /// Schema: PushUpsRecord(_id, year, month, day, target, level, num, which)
-///   which=1  free session (small counts)
-///   which=2  individual programme set
+///   which=1  free session
+///   which=2  assessment (free-style test that determines next difficulty)
 ///   which=3  session total from structured training
+///   target   0-based sequential programme unit (0→"1-1", 23→"8-3")
+///   level    difficulty: 0=Easy, 1=Normal, 2=Hard
+///   num      reps completed (rows with num=0 are excluded by the query)
 class PuudImportService {
   /// Opens a file picker, extracts and reads the .puud database.
   /// Returns the imported [Workout] list, or null if the user cancelled.
@@ -59,22 +62,25 @@ class PuudImportService {
   }
 
   static Workout _rowToWorkout(Map<String, dynamic> row) {
-    final year  = row['year']  as int;
-    final month = row['month'] as int;
-    final day   = row['day']   as int;
-    final num   = row['num']   as int;
-    final which = row['which'] as int;
-    final level = row['level'] as int?;
+    final year   = row['year']   as int;
+    final month  = row['month']  as int;
+    final day    = row['day']    as int;
+    final num    = row['num']    as int;
+    final which  = row['which']  as int;
+    final target = row['target'] as int?;
+    final level  = row['level']  as int?;
 
-    // which=3 = session total from the structured programme.
-    // which=1,2 = free session or individual set.
-    final isFree  = which != 3;
+    // which=1,2 = free session / assessment; which=3 = structured training.
+    final isFree = which != 3;
 
-    // Map the original app's sequential level number to our "week-unit" format.
-    // Level 1 → "1-1", 2 → "1-2", 3 → "1-3", 4 → "2-1", …
-    // Difficulty cannot be derived from the puud schema; leave null.
-    final levelId = (!isFree && level != null && level > 0)
-        ? '${((level - 1) ~/ 3) + 1}-${((level - 1) % 3) + 1}'
+    // target is a 0-based sequential unit index: 0→"1-1", 1→"1-2", 23→"8-3".
+    final levelId = (!isFree && target != null)
+        ? '${(target ~/ 3) + 1}-${(target % 3) + 1}'
+        : null;
+
+    // level encodes difficulty: 0=Easy, 1=Normal, 2=Hard.
+    final difficulty = (!isFree && level != null)
+        ? const ['Easy', 'Normal', 'Hard'][level.clamp(0, 2)]
         : null;
 
     return Workout(
@@ -86,6 +92,7 @@ class PuudImportService {
       isVerified:      false,
       isFreeTraining:  isFree,
       levelId:         levelId,
+      difficulty:      difficulty,
     );
   }
 }
