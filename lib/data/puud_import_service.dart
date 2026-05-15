@@ -64,18 +64,28 @@ class PuudImportService {
     final day   = row['day']   as int;
     final num   = row['num']   as int;
     final which = row['which'] as int;
+    final level = row['level'] as int?;
 
-    // which=3 are session totals from the structured programme (not free training).
-    final isFree = which != 3;
+    // which=3 = session total from the structured programme.
+    // which=1,2 = free session or individual set.
+    final isFree  = which != 3;
+
+    // Map the original app's sequential level number to our "week-unit" format.
+    // Level 1 → "1-1", 2 → "1-2", 3 → "1-3", 4 → "2-1", …
+    // Difficulty cannot be derived from the puud schema; leave null.
+    final levelId = (!isFree && level != null && level > 0)
+        ? '${((level - 1) ~/ 3) + 1}-${((level - 1) % 3) + 1}'
+        : null;
 
     return Workout(
-      date: DateTime(year, month, day),
-      count: num,
+      date:            DateTime(year, month, day),
+      count:           num,
       durationSeconds: 0,
-      avgRpm: 0,
-      isImported: true,
-      isVerified: false,
-      isFreeTraining: isFree,
+      avgRpm:          0,
+      isImported:      true,
+      isVerified:      false,
+      isFreeTraining:  isFree,
+      levelId:         levelId,
     );
   }
 }

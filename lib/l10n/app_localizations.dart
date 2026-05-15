@@ -65,6 +65,7 @@ class AppLocalizations {
       'ok': 'OK',
       'home': 'Home',
       // ── Workout screen ────────────────────────────────────────────────────
+      'structured_training_label': 'Strukturiertes Training',
       'free_training': 'FREIES TRAINING',
       'finish_session': 'SESSION BEENDEN',
       'set_x_of_y': 'Satz {set} von {total}',
@@ -241,6 +242,7 @@ class AppLocalizations {
       'ok': 'OK',
       'home': 'Home',
       // ── Workout screen ────────────────────────────────────────────────────
+      'structured_training_label': 'Structured Training',
       'free_training': 'FREE TRAINING',
       'finish_session': 'FINISH SESSION',
       'set_x_of_y': 'Set {set} of {total}',

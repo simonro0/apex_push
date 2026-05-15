@@ -84,9 +84,12 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     final secs     = widget.workout.durationSeconds % 60;
     final locale   = context.watch<SettingsProvider>().locale;
 
-    final levelStr = widget.workout.levelId != null
-        ? '${widget.workout.levelId} (${widget.workout.difficulty})'
-        : context.t('free_training_label');
+    final levelStr = switch ((widget.workout.levelId, widget.workout.difficulty)) {
+      (final id?, final diff?) => '$id ($diff)',
+      (final id?, null)        => id,
+      _ when !widget.workout.isFreeTraining => context.t('structured_training_label'),
+      _                                      => context.t('free_training_label'),
+    };
 
     final splits     = widget.splits.isNotEmpty ? widget.splits : _reconstructedSplits;
     final targetReps = widget.targetReps.isNotEmpty ? widget.targetReps : _reconstructedTargets;
