@@ -29,8 +29,7 @@ class MonthlyComboChart extends StatelessWidget {
         minY:       0,
         gridData:   const FlGridData(show: true),
         borderData: FlBorderData(show: false),
-        alignment:  BarChartAlignment.center,
-        groupsSpace: 0,
+        alignment:  BarChartAlignment.spaceAround,
         titlesData: FlTitlesData(
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
