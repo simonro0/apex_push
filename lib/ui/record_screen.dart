@@ -57,33 +57,31 @@ class _RecordScreenState extends State<RecordScreen> {
 
   // ── Chart builders ─────────────────────────────────────────────────────────
 
+  // Always generates exactly 31 groups so the chart width is constant.
+  // Slots beyond [daysInMonth] use alpha 0 (invisible, non-tappable in effect).
   List<BarChartGroupData> _buildBarGroups(
-      Map<int, int> data, int days, double Function(int) value, double barWidth) {
+      Map<int, int> data, int daysInMonth, double Function(int) value, double barWidth) {
     final primaryColor = Theme.of(context).colorScheme.primary;
-    return List.generate(days, (i) {
-      final day = i + 1;
+    return List.generate(31, (i) {
+      final day    = i + 1;
+      final exists = day <= daysInMonth;
+      final count  = exists ? (data[day] ?? 0) : 0;
       return BarChartGroupData(
         x: i,
         barRods: [
           BarChartRodData(
-            toY:          value(data[day] ?? 0),
-            color:        (data[day] ?? 0) > 0
-                ? primaryColor
-                : primaryColor.withValues(alpha: 0.08),
+            toY:          value(count),
+            color:        !exists
+                ? Colors.transparent
+                : count > 0
+                    ? primaryColor
+                    : primaryColor.withValues(alpha: 0.08),
             width:        barWidth,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
           ),
         ],
       );
     });
-  }
-
-  List<FlSpot> _buildSpots(Map<int, int> data, double Function(int) value) {
-    return data.entries
-        .where((e) => e.value > 0)
-        .map((e) => FlSpot((e.key - 1).toDouble(), value(e.value)))
-        .toList()
-      ..sort((a, b) => a.x.compareTo(b.x));
   }
 
   // ── Tap handler ────────────────────────────────────────────────────────────
@@ -176,8 +174,6 @@ class _RecordScreenState extends State<RecordScreen> {
             .map(valueFor)
             .reduce((a, b) => a > b ? a : b) * 1.15;
 
-    final spots = _buildSpots(data, valueFor);
-
     return Scaffold(
       appBar: AppBar(title: Text(context.t('record'))),
       body: Column(
@@ -231,16 +227,14 @@ class _RecordScreenState extends State<RecordScreen> {
               padding: const EdgeInsets.fromLTRB(8, 0, 16, 0),
               child: LayoutBuilder(builder: (context, constraints) {
                 const leftReserved = 40.0;
-                final bw = ((constraints.maxWidth - leftReserved) / days * 0.5)
-                    .clamp(1.0, 7.0);
+                const slots = 31;
+                final bw = ((constraints.maxWidth - leftReserved) / slots * 0.6)
+                    .clamp(1.0, 8.0);
                 final barGroups = _buildBarGroups(data, days, valueFor, bw);
                 return MonthlyComboChart(
-                  barGroups:  barGroups,
-                  spots:      spots,
-                  days:       days,
-                  maxY:       maxVal,
-                  onBarTap:   _onBarTap,
-                  yAxisLabel: _showCalories ? 'kcal' : '',
+                  barGroups: barGroups,
+                  maxY:      maxVal,
+                  onBarTap:  _onBarTap,
                 );
               }),
             ),
