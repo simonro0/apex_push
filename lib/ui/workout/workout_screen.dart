@@ -32,6 +32,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   bool   _inRest          = false;
 
   bool _targetReachedPlayed = false;
+  bool _isFinishing         = false;
 
   @override
   void initState() {
@@ -101,8 +102,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       return;
     }
 
-    // Always rest after each regular set; when _currentSet reaches _setsTotal
-    // after rest, _isBurnout becomes true and the burnout set begins.
+    // Skip rest before the burnout set so it starts immediately.
+    if (_currentSet + 1 >= _setsTotal) {
+      setState(() {
+        _setStartCount       = provider.currentCount;
+        _currentSet++;
+        _targetReachedPlayed = false;
+      });
+      return;
+    }
     _startRest(provider);
   }
 
@@ -199,6 +207,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     }
     if (!mounted) return;
 
+    setState(() => _isFinishing = true);
     Navigator.pop(context);
   }
 
@@ -223,8 +232,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<WorkoutProvider>();
     return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, r) => _handleBackPress(provider),
+      canPop: _isFinishing,
+      onPopInvokedWithResult: (didPop, r) {
+        if (!didPop) _handleBackPress(provider);
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: widget.isFreeTraining
