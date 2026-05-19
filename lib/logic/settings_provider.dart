@@ -22,7 +22,7 @@ class SettingsProvider with ChangeNotifier {
   int    _restSecondsEasy   = 30;
   int    _restSecondsNormal = 60;
   int    _restSecondsHard   = 120;
-  double _sensorThreshold   = 12.0;
+  double _sensorThreshold   = 6.0;
 
   // ── Getters ────────────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ class SettingsProvider with ChangeNotifier {
     _restSecondsEasy  = prefs.getInt('rest_easy')              ?? 30;
     _restSecondsNormal= prefs.getInt('rest_normal')            ?? 60;
     _restSecondsHard  = prefs.getInt('rest_hard')              ?? 120;
-    _sensorThreshold  = prefs.getDouble('sensor_threshold')    ?? 12.0;
+    _sensorThreshold  = prefs.getDouble('sensor_threshold')    ?? 6.0;
     AudioService.instance.volume = _audioVolume;
     notifyListeners();
   }

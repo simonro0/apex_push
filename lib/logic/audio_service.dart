@@ -1,7 +1,7 @@
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 
 /// Singleton audio service.
 ///
@@ -46,9 +46,24 @@ class AudioService {
     final restEndBytes   = _wav(hz: 1100, ms: 300, vol: 0.85);
     final targetBytes    = _wav(hz: 1320, ms: 200, vol: 0.80);
 
+    // On Android, request a transient audio focus that ducks other audio
+    // rather than taking full focus.  This eliminates the audio focus
+    // handshake delay that causes audible lag on Pixel devices.
+    final audioCtx = defaultTargetPlatform == TargetPlatform.android
+        ? AudioContext(
+            android: AudioContextAndroid(
+              audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+              stayAwake: false,
+              contentType: AndroidContentType.sonification,
+              usageType: AndroidUsageType.assistanceSonification,
+            ),
+          )
+        : AudioContext();
+
     // Pre-load rep pool.
     for (var i = 0; i < 3; i++) {
       final p = AudioPlayer();
+      await p.setAudioContext(audioCtx);
       await p.setReleaseMode(ReleaseMode.stop);
       await p.setSource(BytesSource(repBytes));
       await p.setVolume(_volume);
@@ -57,16 +72,19 @@ class AudioService {
 
     // Pre-load event players.
     _countdownPlayer = AudioPlayer();
+    await _countdownPlayer.setAudioContext(audioCtx);
     await _countdownPlayer.setReleaseMode(ReleaseMode.stop);
     await _countdownPlayer.setSource(BytesSource(countdownBytes));
     await _countdownPlayer.setVolume(_volume);
 
     _restEndPlayer = AudioPlayer();
+    await _restEndPlayer.setAudioContext(audioCtx);
     await _restEndPlayer.setReleaseMode(ReleaseMode.stop);
     await _restEndPlayer.setSource(BytesSource(restEndBytes));
     await _restEndPlayer.setVolume(_volume);
 
     _targetPlayer = AudioPlayer();
+    await _targetPlayer.setAudioContext(audioCtx);
     await _targetPlayer.setReleaseMode(ReleaseMode.stop);
     await _targetPlayer.setSource(BytesSource(targetBytes));
     await _targetPlayer.setVolume(_volume);

@@ -544,10 +544,12 @@ class _SensitivityTile extends StatelessWidget {
   const _SensitivityTile({required this.settings});
   final SettingsProvider settings;
 
+  // Thresholds are in m/s² of linear (gravity-removed) acceleration.
+  // At rest the sensor reads ~0; a push-up chest impact is typically 5–20 m/s².
   static const _options = [
-    (label: 'sensitivity_high',   value: 8.0),
-    (label: 'sensitivity_medium', value: 12.0),
-    (label: 'sensitivity_low',    value: 16.0),
+    (label: 'sensitivity_high',   value: 3.0),
+    (label: 'sensitivity_medium', value: 6.0),
+    (label: 'sensitivity_low',    value: 12.0),
   ];
 
   @override

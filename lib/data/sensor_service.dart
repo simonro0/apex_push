@@ -20,7 +20,10 @@ class SensorService {
       _isNear = (event > 0);
       _lastProximityRaw = event.toDouble();
     });
-    _accelSub = accelerometerEventStream().listen((AccelerometerEvent event) {
+    // userAccelerometerEventStream removes the gravity component so the
+    // magnitude at rest is ~0 m/s² instead of ~9.8 m/s².  This makes
+    // thresholds device-independent and directly proportional to impact force.
+    _accelSub = userAccelerometerEventStream().listen((UserAccelerometerEvent event) {
       final magnitude = sqrt(
         event.x * event.x + event.y * event.y + event.z * event.z,
       );
