@@ -114,6 +114,33 @@ class DatabaseHelper {
     }
   }
 
+  /// Inserts all puud records in a single transaction. Returns count inserted.
+  Future<int> importPuudRecords(List<({Workout workout, List<RepDetail> repDetails})> records) async {
+    if (records.isEmpty) return 0;
+    final db = await instance.database;
+    await db.transaction((txn) async {
+      for (final r in records) {
+        final id = await txn.insert('workouts', r.workout.toMap());
+        if (r.repDetails.isNotEmpty) {
+          final batch = txn.batch();
+          for (final d in r.repDetails) {
+            batch.insert('rep_details', {
+              'workout_id':    id,
+              'set_index':     d.setIndex,
+              'rep_index':     d.repIndex,
+              'timestamp_ms':  d.timestampMs,
+              'peak_g':        d.peakG,
+              'is_near':       d.isNear ? 1 : 0,
+              'proximity_val': d.proximityVal,
+            });
+          }
+          await batch.commit(noResult: true);
+        }
+      }
+    });
+    return records.length;
+  }
+
   Future<void> deleteAllWorkouts() async {
     final db = await instance.database;
     await db.delete('workouts');

@@ -199,24 +199,8 @@ class WorkoutProvider with ChangeNotifier {
     final records = await PuudImportService.importFromPuud();
     if (records == null) return -1;
     if (records.isEmpty) return 0;
-    for (final r in records) {
-      final id = await DatabaseHelper.instance.createWorkout(r.workout);
-      if (r.repDetails.isNotEmpty) {
-        final details = r.repDetails
-            .map((d) => RepDetail(
-                  workoutId:    id,
-                  setIndex:     d.setIndex,
-                  repIndex:     d.repIndex,
-                  timestampMs:  d.timestampMs,
-                  peakG:        d.peakG,
-                  isNear:       d.isNear,
-                  proximityVal: d.proximityVal,
-                ))
-            .toList();
-        await DatabaseHelper.instance.insertRepDetailsBatch(details);
-      }
-    }
+    final count = await DatabaseHelper.instance.importPuudRecords(records);
     await loadHistoryFromDb();
-    return records.length;
+    return count;
   }
 }
