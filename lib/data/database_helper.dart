@@ -19,7 +19,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), filePath);
     return openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -40,6 +40,9 @@ class DatabaseHelper {
         difficulty    TEXT
       )
     ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(date)',
+    );
     await db.execute('''
       CREATE TABLE rep_details (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,6 +88,11 @@ class DatabaseHelper {
     if (oldVersion < 5) {
       await db.execute(
         'ALTER TABLE rep_details ADD COLUMN set_index INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (oldVersion < 6) {
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(date)',
       );
     }
   }
