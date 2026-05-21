@@ -1,7 +1,7 @@
 # ApexPush – Codebase-Dokumentation
 
-> Erstellt: 2026-05-13  
-> Basis: Erster Stand nach Gemini-generiertem Code
+> Zuletzt aktualisiert: 2026-05-21  
+> Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
 
@@ -16,23 +16,23 @@
    - [Logic](#43-logic)
    - [UI](#44-ui)
 5. [App-Flow](#5-app-flow)
-6. [Abhängigkeiten](#6-abhängigkeiten)
-7. [Bekannte Mängel und offene Punkte](#7-bekannte-mängel-und-offene-punkte)
-8. [Nicht umgesetzte Teile](#8-nicht-umgesetzte-teile)
+6. [Datenbankschema](#6-datenbankschema)
+7. [Abhängigkeiten](#7-abhängigkeiten)
+8. [Offene Punkte & bekannte Bugs](#8-offene-punkte--bekannte-bugs)
 
 ---
 
 ## 1. Projektbeschreibung
 
-**ApexPush** ist eine Flutter-App zur Liegestützen-Verfolgung mit adaptiver Schwierigkeitsanpassung.
+**ApexPush** ist eine Flutter-App zur Liegestützen-Verfolgung mit strukturierten Trainingsplänen und adaptiver Schwierigkeitsanpassung.
 
-Das Kernkonzept:
+Kernkonzept:
 
-- Der Nutzer tippt während der Übung mit Nase oder Brust auf das Display, um jede Wiederholung zu zählen.
-- Sensoren (Näherungssensor + Beschleunigungsmesser) verifizieren, ob die Bewegung "echt" war (Anti-Cheat).
-- Nach jeder Session bewertet der Nutzer die Schwierigkeit (zu leicht / genau richtig / zu schwer).
-- Die App passt das Tagesziel automatisch an.
-- Historische Daten werden lokal per SQLite gespeichert und können als CSV exportiert/importiert werden.
+- Näherungssensor zählt Wiederholungen **vor** dem physischen Berühren des Displays (präziser als reine Touch-Erkennung). Screen-Tap dient als stiller Fallback.
+- Strukturiertes satzbasiertes Training: 5 Sätze mit Zielvorgaben, automatische Pause-Countdown-Timers zwischen Sätzen.
+- 72 hartcodierte Trainingsprogramme (8 Level × 3 Einheiten × 3 Schwierigkeiten).
+- Historische Daten in SQLite mit vollständigem per-Wiederholung-Sensordatensatz.
+- Vollständige Backup/Restore-Lösung: `.apxbak` ZIP mit Prüfsummen + Legacy-CSV-Kompatibilität.
 
 ---
 
@@ -41,49 +41,73 @@ Das Kernkonzept:
 ```
 apex_push/
 ├── lib/
-│   ├── main.dart                          # Einstiegspunkt, Theme, Provider-Setup
+│   ├── main.dart                              # Einstiegspunkt, Theme, Providers, Splash
+│   ├── l10n/
+│   │   └── app_localizations.dart             # DE/EN Texte + BuildContext-Extension
 │   ├── models/
-│   │   └── workout.dart                   # Datenmodelle: Workout, TrainingPlan
+│   │   ├── workout.dart                       # Workout, ActiveProgram
+│   │   ├── training_data.dart                 # 72-Programm-Matrix, Navigation, Empfehlung
+│   │   └── rep_detail.dart                    # Per-Wiederholung-Sensordaten
 │   ├── data/
-│   │   ├── database_helper.dart           # SQLite-Wrapper (Singleton)
-│   │   ├── sensor_service.dart            # Näherung + Beschleunigung
-│   │   └── csv_service.dart               # CSV-Export und -Import
+│   │   ├── database_helper.dart               # SQLite Singleton (Schema v5)
+│   │   ├── sensor_service.dart                # Näherung + Beschleunigung + Rep-Callback
+│   │   ├── csv_service.dart                   # Legacy CSV-Export
+│   │   ├── backup_service.dart                # .apxbak ZIP Export/Import mit Prüfsummen
+│   │   └── puud_import_service.dart           # Import aus originaler Push-Ups-App
 │   ├── logic/
-│   │   ├── workout_provider.dart          # Zentrales State-Management (ChangeNotifier)
-│   │   └── progression_engine.dart        # Algorithmus für Zielanpassung
+│   │   ├── workout_provider.dart              # Zentrales State-Management
+│   │   ├── settings_provider.dart             # Einstellungen (Theme, Audio, Training)
+│   │   ├── audio_service.dart                 # Synthetisierte Töne (Singleton)
+│   │   └── notification_service.dart          # Tägliche Erinnerungen (Local Notifications)
 │   └── ui/
-│       ├── dashboard_screen.dart          # Startbildschirm (Ziel + Verlauf)
-│       ├── widgets/
-│       │   └── workout_stat_card.dart     # ListTile-Karte für einen Workout-Eintrag
+│       ├── dashboard_screen.dart              # Startbildschirm
+│       ├── level_picker_screen.dart           # 72-Einheiten-Auswahl
+│       ├── record_screen.dart                 # Monatsansicht mit Balkendiagramm
+│       ├── session_detail_screen.dart         # Session-Detailansicht (post-Training + historisch)
+│       ├── settings_screen.dart               # Einstellungsscreen
+│       ├── notification_screen.dart           # Benachrichtigungseinstellungen
+│       ├── about_screen.dart                  # App-Info
 │       ├── workout/
-│       │   └── workout_screen.dart        # Live-Trainingsbildschirm
-│       └── plan_configurator/
-│           └── adjust_dialog.dart         # Dialog für Zielanpassung (aktuell ungenutzt)
+│       │   └── workout_screen.dart            # Trainingsbildschirm (satzbasiert + frei)
+│       └── widgets/
+│           ├── workout_stat_card.dart         # Verlaufskarte
+│           └── monthly_combo_chart.dart       # fl_chart Balkendiagramm
 ├── test/
-│   └── widget_test.dart                   # Platzhalter-Test (nicht app-relevant)
+│   ├── widget_test.dart                       # Sanity-Checks (reine Dart, kein SQLite)
+│   └── training_data_test.dart                # 14 Unit-Tests für TrainingData
 ├── pubspec.yaml
-└── README.md
+├── README.md
+├── CODEBASE.md
+└── REQUIREMENTS.md
 ```
 
 ---
 
 ## 3. Architekturüberblick
 
-Die App folgt einem einfachen Schichtenmodell:
-
 ```
-┌─────────────────────────────────────┐
-│              UI-Schicht             │  dashboard_screen, workout_screen, widgets
-├─────────────────────────────────────┤
-│           Logic-Schicht             │  workout_provider (Provider), progression_engine
-├─────────────────────────────────────┤
-│            Data-Schicht             │  database_helper (SQLite), sensor_service, csv_service
-├─────────────────────────────────────┤
-│            Modell-Schicht           │  Workout, TrainingPlan
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                       UI-Schicht                         │
+│  DashboardScreen · WorkoutScreen · RecordScreen          │
+│  LevelPickerScreen · SessionDetailScreen                 │
+│  SettingsScreen · NotificationScreen · AboutScreen       │
+├──────────────────────────────────────────────────────────┤
+│                     Logic-Schicht                        │
+│  WorkoutProvider  ·  SettingsProvider                    │
+│  AudioService (Singleton)  ·  NotificationService (Singleton) │
+├──────────────────────────────────────────────────────────┤
+│                      Data-Schicht                        │
+│  DatabaseHelper (SQLite)  ·  SensorService               │
+│  BackupService  ·  CsvService  ·  PuudImportService      │
+├──────────────────────────────────────────────────────────┤
+│                     Modell-Schicht                       │
+│  Workout  ·  ActiveProgram  ·  TrainingData  ·  RepDetail │
+└──────────────────────────────────────────────────────────┘
 ```
 
-**State-Management:** Flutter Provider (`ChangeNotifier`). Der `WorkoutProvider` hält den gesamten App-Zustand und wird über `ChangeNotifierProvider` in `main.dart` bereitgestellt.
+**State-Management:** Flutter Provider (`ChangeNotifier`).  
+`WorkoutProvider` und `SettingsProvider` werden über `MultiProvider` in `main.dart` bereitgestellt.  
+`AudioService` und `NotificationService` sind Singletons ohne Provider-Integration.
 
 ---
 
@@ -93,24 +117,55 @@ Die App folgt einem einfachen Schichtenmodell:
 
 **`Workout`** (`lib/models/workout.dart`)
 
-| Feld              | Typ        | Beschreibung                           |
-|-------------------|------------|----------------------------------------|
-| `id`              | `int?`     | Datenbankprimärschlüssel               |
-| `date`            | `DateTime` | Zeitstempel der Session                |
-| `count`           | `int`      | Anzahl gezählter Wiederholungen        |
-| `durationSeconds` | `int`      | Dauer der Session in Sekunden          |
-| `avgRpm`          | `double`   | Wiederholungen pro Minute              |
-| `isImported`      | `bool`     | Kennzeichnung als CSV-Import           |
-| `isVerified`      | `bool`     | Mindestens eine Wdh. sensorverifiziert |
+| Feld              | Typ        | Beschreibung                                  |
+|-------------------|------------|-----------------------------------------------|
+| `id`              | `int?`     | Datenbankprimärschlüssel                      |
+| `date`            | `DateTime` | Zeitstempel der Session                       |
+| `count`           | `int`      | Gesamtwiederholungen                          |
+| `durationSeconds` | `int`      | Sessiondauer                                  |
+| `avgRpm`          | `double`   | Wiederholungen pro Minute                     |
+| `isImported`      | `bool`     | Import-Kennzeichnung                          |
+| `isVerified`      | `bool`     | Mindestens eine sensorverifizierte Wdh.       |
+| `isFreeTraining`  | `bool`     | Freies Training (ohne Stufenbindung)          |
+| `levelId`         | `String?`  | Einheit, z.B. `"3-2"` – null bei freiem Training |
+| `difficulty`      | `String?`  | `"Easy"` / `"Normal"` / `"Hard"` – null bei freiem Training |
 
-Methoden: `toMap()` (DB-Serialisierung), `fromCsv()` (Factory-Konstruktor).
+**`ActiveProgram`** (`lib/models/workout.dart`)
 
-**`TrainingPlan`** (`lib/models/workout.dart`)
+Leichtgewichtiger Value-Type: `unitId` (z.B. `"4-2"`) + `difficulty`. Wird in SharedPreferences persistiert.
 
-| Feld                   | Typ      | Beschreibung                         |
-|------------------------|----------|--------------------------------------|
-| `dailyTarget`          | `int`    | Tagesziel (Wiederholungen)           |
-| `difficultyMultiplier` | `double` | **Definiert, aber nirgends genutzt** |
+**`TrainingData`** (`lib/models/training_data.dart`)
+
+```dart
+typedef LevelStep = ({String unitId, String difficulty});
+```
+
+| Methode / Konstante                            | Beschreibung                                              |
+|------------------------------------------------|-----------------------------------------------------------|
+| `allUnitIds` (24 Einträge)                     | Alle Einheiten in Programmreihenfolge                     |
+| `difficulties` = `['Easy','Normal','Hard']`    | Schwierigkeitsstufen                                      |
+| `programs` (72 Einträge)                       | Map: unitId → difficulty → `List<int>` (5 Sätze)         |
+| `restSeconds` (per difficulty)                 | Standardruhezeiten (Easy=30 / Normal=60 / Hard=120 s)     |
+| `getReps(unitId, difficulty)`                  | 5-Elemente-Liste der Satzziele                            |
+| `getRestSeconds(difficulty)`                   | Standardruhezeit (überschreibbar via SettingsProvider)    |
+| `recommendUnit(practiceReps, difficulty)`      | Erste Einheit, bei der `max(Sätze) > practiceReps` minimal |
+| `stepUp(unitId, difficulty)`                   | Easy→Normal→Hard→nächste Einheit Easy                     |
+| `stepDown(unitId, difficulty)`                 | Umgekehrt; Grenzen bleiben                                |
+| `nextUnit(unitId)` / `previousUnit(unitId)`    | Navigation in Programmreihenfolge (null an den Enden)     |
+
+**`RepDetail`** (`lib/models/rep_detail.dart`)
+
+Per-Wiederholung-Sensordaten – wird bei jeder Wdh. erfasst und in der Tabelle `rep_details` gespeichert.
+
+| Feld           | Typ      | Beschreibung                      |
+|----------------|----------|-----------------------------------|
+| `workoutId`    | `int`    | FK → workouts.id                  |
+| `repIndex`     | `int`    | Position in der Session (0-basiert)|
+| `setIndex`     | `int`    | Satznummer (0-basiert)            |
+| `timestampMs`  | `int`    | ms seit Sessionstart              |
+| `peakG`        | `double` | Maximale Beschleunigung im Zeitfenster |
+| `isNear`       | `bool`   | War Näherungssensor aktiv?        |
+| `proximityVal` | `double` | Rohwert des Näherungssensors      |
 
 ---
 
@@ -118,105 +173,144 @@ Methoden: `toMap()` (DB-Serialisierung), `fromCsv()` (Factory-Konstruktor).
 
 **`DatabaseHelper`** (`lib/data/database_helper.dart`)
 
-- Singleton-Pattern, SQLite via `sqflite`
-- Tabelle `workouts` mit 7 Spalten
-- Operationen: `createWorkout()`, `readAllWorkouts()` (absteigend nach Datum), `close()`
-- Schema-Version 1, kein Migrationspfad definiert
+- Singleton, SQLite via `sqflite`, Schema **Version 5**
+- Zwei Tabellen: `workouts` (10 Spalten), `rep_details` (8 Spalten + FK)
+- Migrations: v1→2 (isFreeTraining, levelId, difficulty), v2→3 (rep_details Tabelle), v3→4 (proximity_val), v4→5 (set_index)
+- Schlüsselmethoden: `createWorkout()`, `readAllWorkouts()`, `batchInsert()`, `insertRepDetails()`, `insertRepDetailsBatch()`, `getRepDetailsForWorkout()`, `getAllRepDetails()`, `deleteAllWorkouts()`
 
 **`SensorService`** (`lib/data/sensor_service.dart`)
 
-Kombiniert zwei Sensoren zur Rep-Verifikation:
-
 ```
-Näherungssensor (_isNear = true)
-        +
-Beschleunigungsmesser (|a| > 12,0 m/s²)
-        =
-verifyPushUp() → true
+Zustandsautomat:
+  FAR  ──(event > 0)──▶  NEAR  → proximityRepCallback()  → _wasNear = true
+  NEAR ──(event == 0)──▶  FAR   → bereit für nächste Wdh. → _wasNear = false
 ```
 
-- Schwellenwert 12,0 m/s² ist hardcoded
-- Sensor-Subscriptions werden als `StreamSubscription` verwaltet
-- `dispose()` existiert, muss aber vom Provider aufgerufen werden
+- `proximityRepCallback` (öffentliches Feld): wird von `WorkoutProvider.startWorkout()` gesetzt
+- Callback feuert auf **FAR→NEAR-Übergang** (vor physischem Berühren)
+- Beschleunigungsmesser (`userAccelerometerEventStream`) erfasst laufend den Peakwert für `verifyPushUp()`
+- `verifyPushUp()` gibt `({bool verified, double peakG, bool isNear, double proximityRaw})` zurück
+- `dispose()` canceliert beide Subscriptions
+
+**`BackupService`** (`lib/data/backup_service.dart`)
+
+Vollständiges Backup-Format `.apxbak` (ZIP):
+
+| Datei             | Inhalt                                                     |
+|-------------------|------------------------------------------------------------|
+| `workouts.csv`    | Alle Workouts mit ID                                       |
+| `rep_details.csv` | Alle per-Rep-Sensordaten                                   |
+| `settings.csv`    | Key-Value-Paare der SettingsProvider-Werte                 |
+| `checksums.txt`   | SHA-256 von workouts.csv und rep_details.csv               |
+
+Import-Logik: Prüfsummen-Verifikation → Konflikt-Erkennung (ID-Vergleich) → Deduplication (skip bei identischen Daten) → Abort bei abweichenden Konflikten. Abwärtskompatibel: reine CSV-Dateien werden als Legacy-Import erkannt (ZIP-Magic-Bytes Prüfung).
+
+**`PuudImportService`** (`lib/data/puud_import_service.dart`)
+
+Entpackt `.puud`-Datei (ZIP) → extrahiert `PushUps_Mos.db` → liest `PushUpsRecord`-Tabelle → mapped auf `Workout` + rekonstruiert per-Rep-Daten für `rep_details`.
 
 **`CsvService`** (`lib/data/csv_service.dart`)
 
-- Export: Workout-Liste → CSV-Datei → `share_plus`-Dialog
-- Import: `file_picker` → CSV-Parser → `List<Workout>`
-- Spalten: `date, count, duration_seconds, avg_rpm, is_verified`
+Legacy-Export (nur `workouts`, kein rep_details) via `share_plus`. Für vollständige Backups → `BackupService.exportBackup()`.
 
 ---
 
 ### 4.3 Logic
 
-**`ProgressionEngine`** (`lib/logic/progression_engine.dart`)
-
-| Nutzerfeedback | Formel              | Effekt   |
-|----------------|---------------------|----------|
-| "Too Hard"     | `target × 0.90`     | −10 %    |
-| "Just Right"   | `target × 1.05`     | +5 %     |
-| "Too Easy"     | `target × 1.20`     | +20 %    |
-
-Ergebnis wird auf `int` gerundet.
-
 **`WorkoutProvider`** (`lib/logic/workout_provider.dart`)
 
-Zentraler ChangeNotifier. Hält:
+Zentraler ChangeNotifier. Wichtige Zustände:
 
-| Zustand                | Typ             | Beschreibung                     |
-|------------------------|-----------------|----------------------------------|
-| `_currentSessionCount` | `int`           | Zähler der aktuellen Session     |
-| `_startTime`           | `DateTime?`     | Startzeitpunkt                   |
-| `_lastRepVerified`     | `bool`          | Sensor-Ergebnis der letzten Wdh. |
-| `_history`             | `List<Workout>` | Geladene Workout-Historie        |
-| `_currentPlan`         | `TrainingPlan`  | Aktives Tagesziel                |
+| Feld                     | Typ              | Beschreibung                                 |
+|--------------------------|------------------|----------------------------------------------|
+| `_currentSessionCount`   | `int`            | Gesamtzähler der laufenden Session           |
+| `_sessionSplits`         | `List<int>`      | Rep-Anzahl pro abgeschlossenem Satz          |
+| `_repBuffer`             | `List<RepDetail>`| Per-Rep-Sensordaten bis zum Speichern        |
+| `_lastProximityRepTime`  | `DateTime?`      | Debounce-Zeitstempel für Tap-Fallback        |
+| `_activeProgram`         | `ActiveProgram`  | Aktuelle Einheit + Schwierigkeit             |
+| `_history`               | `List<Workout>`  | Geladene Datenbank-Historie                  |
 
-Schlüsselmethoden:
+Zählpfade:
+- **Näherungssensor** (`_onProximityRep`): setzt `_lastProximityRepTime`, ruft `_countRep()`
+- **Screen-Tap** (`incrementCount()`): überspringt, wenn `_lastProximityRepTime < 700 ms`; sonst `_countRep()`
+- **`_countRep()`**: verifyPushUp → RepDetail-Buffer → count++ → notifyListeners()
 
-| Methode                    | Beschreibung                                      |
-|----------------------------|---------------------------------------------------|
-| `startWorkout()`           | Sensoren initialisieren, Timer starten            |
-| `incrementCount()`         | Zähler erhöhen + Verifikation prüfen              |
-| `saveWorkout()`            | In SQLite persistieren, RPM berechnen             |
-| `adjustDifficulty(String)` | Progression Engine aufrufen, Plan aktualisieren   |
-| `updatePlanManual(int)`    | Direktes Überschreiben des Ziels                  |
-| `saveNewPlan(int)`         | Ziel in SharedPreferences speichern               |
-| `saveMultipleWorkouts()`   | Batch-Import aus CSV                              |
-| `loadHistoryFromDb()`      | Historie beim App-Start laden                     |
-| `loadPlan()`               | Tagesziel aus SharedPreferences laden             |
+Weitere Methoden: `loadActiveProgram()`, `saveActiveProgram()`, `stepDifficulty()`, `recordSetSplit()`, `saveWorkout()` (gibt `Workout` zurück), `importFromPuud()`, `clearAllData()`
+
+**`SettingsProvider`** (`lib/logic/settings_provider.dart`)
+
+Persistiert alle Benutzereinstellungen in SharedPreferences:
+
+| Gruppe          | Einstellungen                                                             |
+|-----------------|---------------------------------------------------------------------------|
+| Erscheinungsbild| `themeMode` (dark/light/system), `locale` (de/en)                        |
+| Audio           | `audioEnabled`, `repSoundEnabled`, `audioVolume`                          |
+| Benachrichtigungen | `notificationsEnabled`, `reminderHour`, `reminderMinute`               |
+| Training        | `restSecondsEasy/Normal/Hard` (überschreiben TrainingData-Defaults), `sensorThreshold` |
+
+`toBackupMap()` / `restoreFromBackup()` für Integration mit BackupService.
+
+**`AudioService`** (`lib/logic/audio_service.dart`)
+
+Singleton mit Pre-loaded-Audio-Pool für minimale Latenz:
+
+| Methode            | Ton        | Verwendung                                   |
+|--------------------|------------|----------------------------------------------|
+| `playRepTick()`    | 880 Hz, 60 ms  | Jede Wiederholung                        |
+| `playCountdown()`  | 660 Hz, 110 ms | 3 / 2 / 1 s vor Pause-Ende              |
+| `playRestEnd()`    | 1100 Hz, 300 ms| Pause abgelaufen, nächster Satz           |
+| `playTargetReached()` | 1320 Hz, 200 ms | Satzziel erstmals erreicht          |
+
+Töne werden zur Laufzeit als WAV-Bytes synthetisiert (kein Asset nötig). Drei `AudioPlayer` im Round-Robin für überlappende Rep-Ticks. Android-spezifisch: `AndroidAudioFocus.gainTransientMayDuck` für geringe Latenz.
+
+**`NotificationService`** (`lib/logic/notification_service.dart`)
+
+Täglich wiederkehrende Erinnerung via `flutter_local_notifications` + `timezone`. Wird in `main.dart` initialisiert.
 
 ---
 
 ### 4.4 UI
 
-**`DashboardScreen`** (`lib/ui/dashboard_screen.dart`)
+**`DashboardScreen`**
+- Stats-Zeile oben: Best Record / Total / Average
+- Aktives Level (tippbar → öffnet LevelPickerScreen)
+- Verlaufsliste mit `WorkoutStatCard`
+- Navigation: TRAINING (strukturiert) · PRACTICE (freies Training) · RECORD (Monatsdiagramm)
+- AppBar: Einstellungen-Icon; in Settings: CSV-Export, .apxbak-Export/-Import, .puud-Import, Daten löschen
 
-- Zeigt das aktuelle Tagesziel (48 pt, prominent)
-- `ListView` der bisherigen Workouts via `WorkoutStatCard`
-- Icons für CSV-Export (Upload) und CSV-Import (Download)
-- FAB "START TRAINING" → navigiert zu `WorkoutScreen`
-- Lädt Verlauf und Plan in `initState` via `addPostFrameCallback`
+**`WorkoutScreen`**
+- **Freies Training**: schwarzer Vollbild-Tap-Zähler, FINISH-Button
+- **Strukturiertes Training**:
+  - Aktiver Satz: `Satz N von 5 – Ziel X Wdh.`, großer Zähler (grün bei Zielerreichung), SATZ/TRAINING-ABSCHLIESSEN-Button, Abbrechen-Link
+  - Pause: Countdown (orange bei ≤ 3 s), Vorschau nächster Satz, PAUSE ÜBERSPRINGEN
+  - Audio: Rep-Tick, Countdown 3-2-1, Pause-Ende, Ziel-Ton
+- Post-Training-Flow: SessionDetailScreen → Schwierigkeitsfeedback-Dialog → ggf. Level-Änderung → Dashboard
 
-**`WorkoutScreen`** (`lib/ui/workout/workout_screen.dart`)
+**`LevelPickerScreen`**
+- 8 Level-Sektionen, je 3 Einheitszeilen (z.B. `3-2: E: 13-10-11-11-10 | N: ... | H: ...`)
+- Schwierigkeits-Chips farbkodiert: grün (Easy), orange (Normal), rot (Hard)
+- ÜBERNEHMEN → `provider.saveActiveProgram()`
 
-- Schwarzer Vollbild-Hintergrund
-- Riesiger Zähler (180 pt) – Tap zählt Wiederholung
-- Hinweis: "TAP WITH NOSE / CHEST"
-- "FINISH SESSION"-Button → Feedback-Dialog
-- Post-Workout-Flow:
-  1. Workout speichern
-  2. Schwierigkeitsfeedback einholen (Tough / Perfect / Easy)
-  3. Neue Zielanpassung anzeigen (alt → neu)
-  4. Bestätigen oder zurücksetzen
+**`RecordScreen`**
+- Monats-Navigation: ◄ / ► Buttons + horizontales Wischen (Swipe)
+- Tabs: Liegestütze | Kalorien (× 0,5 kcal/Wdh.)
+- `MonthlyComboChart`: 31 Slots (feste Breite), Balken pro Trainingstag, Farbe primär/gedimmt/transparent
+- Tap auf Balken → SessionDetailScreen; mehrere Sessions am Tag → Bottom-Sheet-Picker
 
-**`WorkoutStatCard`** (`lib/ui/widgets/workout_stat_card.dart`)
+**`SessionDetailScreen`**
+- Summary-Karte: Datum, Level, Gesamtreps, Dauer, Kalorien
+- Satztabelle (wenn `splits` vorhanden): Ziel vs. Erreicht, Pass/Fail-Icon
+- Post-Training: mit Splits (direkt nach Workout)
+- Historisch: ohne Splits (aus RecordScreen geöffnet)
 
-- `ListTile` mit Icon (importiert vs. lokal), Rep-Anzahl, Datum/RPM, Verifikationsstatus
-
-**`AdjustDialog`** (`lib/ui/plan_configurator/adjust_dialog.dart`)
-
-- Zeigt altes → neues Ziel und bietet Accept/Decline
-- **Nicht importiert/eingebunden** – tote Code-Datei
+**`SettingsScreen`** / **`NotificationScreen`** / **`AboutScreen`**
+- Theme, Sprache (DE/EN)
+- Audio-Toggle, Lautstärke-Slider, Rep-Sound-Toggle
+- Ruhezeiten per Schwierigkeit (Easy/Normal/Hard)
+- Sensor-Schwellwert (Slider)
+- Benachrichtigungen (Zeit-Picker)
+- Backup-Aktionen: Export, Import, .puud, CSV, Löschen
+- App-Version via `package_info_plus`
 
 ---
 
@@ -224,95 +318,117 @@ Schlüsselmethoden:
 
 ```
 App-Start
-    │
-    ▼
+    ├── AudioService.init() (WAV-Pool pre-load)
+    ├── NotificationService.init()
+    └── MultiProvider → DashboardScreen
+            ├── WorkoutProvider.loadHistoryFromDb()
+            └── WorkoutProvider.loadActiveProgram()
+
 DashboardScreen
-    ├── loadHistoryFromDb()
-    ├── loadPlan()
+    ├── [TRAINING] → WorkoutScreen(isFreeTraining: false)
+    │       ├── startWorkout() → SensorService.init() + proximityRepCallback
+    │       ├── Rep: Proximiy-Sensor → _onProximityRep() → _countRep()
+    │       │         oder Tap → incrementCount() (Debounce 700ms)
+    │       ├── [SATZ ABSCHLIESSEN] → recordSetSplit() → Rest-Timer
+    │       └── [TRAINING ABSCHLIESSEN / ABBRECHEN]
+    │               → saveWorkout() → SessionDetailScreen
+    │               → Feedback-Dialog → stepDifficulty()
+    │               → [ggf.] Level-Changed-Dialog → Dashboard
     │
-    ├── [FAB] START TRAINING
-    │       │
-    │       ▼
-    │   WorkoutScreen
-    │       ├── startWorkout() → Sensoren starten
-    │       ├── [Tap] incrementCount() → Zähler + Verifikation
-    │       └── [FINISH] saveWorkout()
-    │               │
-    │               ▼
-    │           Feedback-Dialog
-    │               │
-    │               ▼
-    │           adjustDifficulty()
-    │               │
-    │               ▼
-    │           Anpassungsvorschau
-    │               ├── [Accept] saveNewPlan()
-    │               └── [Decline] Plan bleibt
+    ├── [PRACTICE] → WorkoutScreen(isFreeTraining: true)
+    │       └── (gleich, ohne Satzstruktur, ohne Post-Training-Detail)
     │
-    ├── [Upload-Icon] exportToCsv()
-    └── [Download-Icon] importFromCsv() → saveMultipleWorkouts()
+    ├── [RECORD] → RecordScreen
+    │       ├── Swipe / ◄ ► → Monat wechseln
+    │       └── Tap Balken → SessionDetailScreen (historisch)
+    │
+    └── [⚙] → SettingsScreen
+            ├── Backup-Export → BackupService.exportBackup()
+            ├── Backup-Import → BackupService.importBackup()
+            ├── .puud-Import  → WorkoutProvider.importFromPuud()
+            └── Daten löschen → WorkoutProvider.clearAllData()
 ```
 
 ---
 
-## 6. Abhängigkeiten
+## 6. Datenbankschema
 
-| Paket                | Version | Verwendung                  |
-|----------------------|---------|-----------------------------|
-| `provider`           | ^6.0.0  | State-Management            |
-| `sqflite`            | aktuell | Lokale SQLite-Datenbank     |
-| `shared_preferences` | aktuell | Tagesziel persistieren      |
-| `sensors_plus`       | aktuell | Beschleunigungsmesser       |
-| `proximity_sensor`   | aktuell | Näherungssensor             |
-| `csv`                | aktuell | CSV-Parsing                 |
-| `file_picker`        | aktuell | Dateiauswahl für Import     |
-| `path_provider`      | aktuell | Temp-Verzeichnis für Export |
-| `share_plus`         | aktuell | System-Share-Dialog         |
+**Schema-Version: 5**
 
----
+```sql
+CREATE TABLE workouts (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    date            TEXT    NOT NULL,        -- ISO-8601
+    count           INTEGER NOT NULL,
+    duration        INTEGER NOT NULL,        -- Sekunden
+    rpm             REAL    NOT NULL,
+    isImported      INTEGER NOT NULL DEFAULT 0,
+    isVerified      INTEGER NOT NULL DEFAULT 0,
+    isFreeTraining  INTEGER NOT NULL DEFAULT 0,
+    levelId         TEXT,                    -- z.B. "3-2", NULL bei freiem Training
+    difficulty      TEXT                     -- "Easy"/"Normal"/"Hard", NULL bei freiem Training
+);
 
-## 7. Bekannte Mängel und offene Punkte
+CREATE TABLE rep_details (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    workout_id    INTEGER NOT NULL,
+    rep_index     INTEGER NOT NULL,         -- 0-basiert, innerhalb Session
+    set_index     INTEGER NOT NULL DEFAULT 0,
+    timestamp_ms  INTEGER NOT NULL,         -- ms seit Sessionstart
+    peak_g        REAL    NOT NULL,
+    is_near       INTEGER NOT NULL DEFAULT 0,
+    proximity_val REAL    NOT NULL DEFAULT 0,
+    FOREIGN KEY (workout_id) REFERENCES workouts(id)
+);
+```
 
-### Kritisch
-
-| #  | Problem                      | Datei                   | Beschreibung                                                                                      |
-|----|------------------------------|-------------------------|---------------------------------------------------------------------------------------------------|
-| K1 | `_startTime` ohne Null-Check | `workout_provider.dart` | `saveWorkout()` greift auf `_startTime` zu, ohne vorher auf `null` zu prüfen → potentieller Crash |
-| K2 | Sensor-Dispose fehlt         | `workout_provider.dart` | `SensorService.dispose()` wird im Provider-`dispose()` nicht aufgerufen → Memory Leak             |
-| K3 | Kein Datenbankmigrationsplan | `database_helper.dart`  | Schema-Version 1, keine `onUpgrade`-Logik                                                         |
-
-### Bedeutend
-
-| #  | Problem                               | Datei                  | Beschreibung                                                                             |
-|----|---------------------------------------|------------------------|------------------------------------------------------------------------------------------|
-| B1 | Toter Code                            | `adjust_dialog.dart`   | Datei existiert, wird aber nirgends importiert oder genutzt                              |
-| B2 | Ungenutzte Modelfelder                | `workout.dart`         | `TrainingPlan.difficultyMultiplier` definiert aber nie verwendet                         |
-| B3 | Placeholder-Tests                     | `widget_test.dart`     | Test erwartet einen Zähler-Widget, der in der App nicht existiert                        |
-| B4 | Hardcodierter Sensor-Schwellenwert    | `sensor_service.dart`  | 12,0 m/s² ist nicht kalibrierbar; unterschiedliche Geräte liefern unterschiedliche Werte |
-| B5 | Keine Fehlerbehandlung bei CSV-Import | `csv_service.dart`     | Ungültige Dateiformate führen zu stillen Fehlern oder Abstürzen                          |
-| B6 | Kein Paginierung der Historie         | `database_helper.dart` | Alle Workouts werden bei jedem App-Start geladen                                         |
-
-### Minor
-
-| #  | Problem                           | Datei                   | Beschreibung                                           |
-|----|-----------------------------------|-------------------------|--------------------------------------------------------|
-| M1 | Englischsprachige UI              | diverse                 | Alle UI-Texte auf Englisch, keine i18n-Vorbereitung    |
-| M2 | `_lastRepVerified` initial `true` | `workout_provider.dart` | Sollte `false` oder `null` sein für korrekte Semantik  |
-| M3 | Kein DB-Index auf `date`          | `database_helper.dart`  | Queries nach Datum sind langsam bei großen Datenmengen |
-| M4 | README veraltet                   | `README.md`             | Standard-Flutter-README, kein App-spezifischer Inhalt  |
+Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficulty) → v3 (rep_details) → v4 (proximity_val) → v5 (set_index)
 
 ---
 
-## 8. Nicht umgesetzte Teile
+## 7. Abhängigkeiten
 
-Folgende Konzepte sind im Code angedeutet, aber nicht fertig implementiert:
+| Paket                        | Verwendung                                       |
+|------------------------------|--------------------------------------------------|
+| `provider ^6.0.0`            | State-Management                                 |
+| `sqflite`                    | Lokale SQLite-Datenbank                          |
+| `shared_preferences`         | Einstellungen, aktives Level                     |
+| `sensors_plus`               | Beschleunigungsmesser (userAccelerometer)        |
+| `proximity_sensor`           | Näherungssensor (primärer Rep-Trigger)           |
+| `audioplayers`               | Pre-loaded WAV-Playback                          |
+| `fl_chart`                   | Balkendiagramm im RecordScreen                   |
+| `archive`                    | ZIP für .apxbak und .puud                        |
+| `crypto`                     | SHA-256 Prüfsummen im Backup                     |
+| `csv`                        | CSV-Parsing und -Generierung                     |
+| `file_picker ^10.0.0`        | Dateiauswahl (Import) + SAF Save (Export)        |
+| `share_plus`                 | System-Share für CSV-Export                      |
+| `path_provider`              | Temp-Verzeichnis                                 |
+| `path`                       | Pfad-Utilities für SQLite                        |
+| `flutter_local_notifications`| Tägliche Erinnerungen                            |
+| `timezone`                   | Zeitzonensupport für Notifications               |
+| `intl`                       | Datumsformatierung (DE/EN)                       |
+| `flutter_native_splash`      | Splash Screen                                    |
+| `package_info_plus`          | App-Version im About-Screen                      |
+| `url_launcher`               | Links im About-Screen                            |
 
-| Konzept                 | Stand                    | Hinweis                                         |
-|-------------------------|--------------------------|-------------------------------------------------|
-| `difficultyMultiplier`  | Definiert, nicht genutzt | Gedacht für gewichteten Progressionsalgorithmus |
-| Sensor-Kalibrierung     | Kein UI vorhanden        | Schwellenwert hardcoded                         |
-| Mehrere Trainingspläne  | Nur ein Plan möglich     | `TrainingPlan` ohne Namensgebung oder Liste     |
-| Pausieren einer Session | Nicht implementiert      | Kein Pause-Button im WorkoutScreen              |
-| Statistiken/Diagramme   | Nicht vorhanden          | Dashboard zeigt nur Rohliste                    |
-| Benachrichtigungen      | Nicht vorhanden          | Keine tägliche Erinnerung                       |
-| Authentifizierung       | Nicht vorhanden          | Rein lokal, kein Account                        |
+---
+
+## 8. Offene Punkte & bekannte Bugs
+
+### Feature-Lücken (noch nicht implementiert)
+
+| # | Feature                         | Details                                                                      |
+|---|---------------------------------|------------------------------------------------------------------------------|
+| F1 | Bewegungsanalyse-Graph          | `rep_details` werden erfasst, aber SessionDetailScreen zeigt keinen Graph    |
+| F2 | Practice-Flow mit Empfehlung    | `TrainingData.recommendUnit()` existiert, aber kein UI-Flow nach freiem Training |
+| F3 | Wochenübersicht                 | Post-Training-Flow endet nach SessionDetailScreen, keine Wochenübersicht     |
+| F4 | Strava-Integration              | In REQUIREMENTS.md §10 spezifiziert, noch nicht begonnen                     |
+
+### Bekannte Bugs / Verbesserungsbedarf
+
+| # | Problem                               | Details                                                                   |
+|---|---------------------------------------|---------------------------------------------------------------------------|
+| B1 | Keine Paginierung der Verlaufsliste  | Alle Workouts werden bei App-Start geladen (kein Impact unter ~2000 Einträgen) |
+| B2 | Kein DB-Index auf `date`             | Queries für große Datenmengen werden langsamer                             |
+| B3 | RecordScreen ohne Line-Overlay       | LineChart wurde entfernt (Ausrichtungsproblem), nur BarChart vorhanden    |
+| B4 | Proximity-Invertierung geräteabhängig| `event > 0 = near` gilt für die meisten Android-Geräte, nicht alle       |
