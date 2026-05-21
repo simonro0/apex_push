@@ -176,7 +176,8 @@ Per-Wiederholung-Sensordaten – wird bei jeder Wdh. erfasst und in der Tabelle 
 - Singleton, SQLite via `sqflite`, Schema **Version 5**
 - Zwei Tabellen: `workouts` (10 Spalten), `rep_details` (8 Spalten + FK)
 - Migrations: v1→2 (isFreeTraining, levelId, difficulty), v2→3 (rep_details Tabelle), v3→4 (proximity_val), v4→5 (set_index)
-- Schlüsselmethoden: `createWorkout()`, `readAllWorkouts()`, `batchInsert()`, `insertRepDetails()`, `insertRepDetailsBatch()`, `getRepDetailsForWorkout()`, `getAllRepDetails()`, `deleteAllWorkouts()`
+- Schlüsselmethoden: `createWorkout()`, `readAllWorkouts()`, `batchInsert()`, `insertRepDetails()`, `insertRepDetailsBatch()`, `importPuudRecords()`, `getRepDetailsForWorkout()`, `getAllRepDetails()`, `deleteAllWorkouts()`
+- `importPuudRecords()`: nimmt `List<({Workout workout, List<RepDetail> repDetails})>`, führt einen einzelnen SQLite-Transaction-Block aus
 
 **`SensorService`** (`lib/data/sensor_service.dart`)
 
@@ -189,7 +190,8 @@ Zustandsautomat:
 - `proximityRepCallback` (öffentliches Feld): wird von `WorkoutProvider.startWorkout()` gesetzt
 - Callback feuert auf **FAR→NEAR-Übergang** (vor physischem Berühren)
 - Beschleunigungsmesser (`userAccelerometerEventStream`) erfasst laufend den Peakwert für `verifyPushUp()`
-- `verifyPushUp()` gibt `({bool verified, double peakG, bool isNear, double proximityRaw})` zurück
+- `verifyPushUp()` gibt `({bool verified, double peakG, bool isNear, double proximityRaw})` zurück; setzt 200 ms Cooldown zur Vermeidung von Tap-Vibrations-Doppelzählung
+- Standard-`impactThreshold`: **6.0 m/s²** (gravity-removed); Presets: High=3.0, Medium=6.0, Low=12.0
 - `dispose()` canceliert beide Subscriptions
 
 **`BackupService`** (`lib/data/backup_service.dart`)
@@ -400,7 +402,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | `archive`                    | ZIP für .apxbak und .puud                        |
 | `crypto`                     | SHA-256 Prüfsummen im Backup                     |
 | `csv`                        | CSV-Parsing und -Generierung                     |
-| `file_picker ^10.0.0`        | Dateiauswahl (Import) + SAF Save (Export)        |
+| `file_picker ^11.0.2`        | Dateiauswahl (Import) + SAF Save (Export)        |
 | `share_plus`                 | System-Share für CSV-Export                      |
 | `path_provider`              | Temp-Verzeichnis                                 |
 | `path`                       | Pfad-Utilities für SQLite                        |
