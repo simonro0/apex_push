@@ -7,7 +7,13 @@ import 'package:sensors_plus/sensors_plus.dart';
 class SensorService {
   final double impactThreshold;
 
-  bool   _isNear = false;
+  /// Called on the main thread each time the proximity sensor transitions
+  /// from FAR → NEAR (i.e. the user's nose/chest approaches the screen).
+  /// Set before calling [init]; may be updated at any time.
+  void Function()? proximityRepCallback;
+
+  bool   _wasNear = false;
+  bool   _isNear  = false;
   double _maxGInWindow = 0.0;
   double _lastProximityRaw = 0.0;
   bool   _inCooldown = false;
@@ -17,8 +23,17 @@ class SensorService {
   SensorService({this.impactThreshold = 6.0});
 
   void init() {
+    _wasNear = false;
     _proximitySub = ProximitySensor.events.listen((event) {
-      _isNear = (event > 0);
+      // proximity_sensor emits raw cm values; > 0 means an object is detected
+      // (near). Some devices return a fixed max (e.g. 5) for "far".
+      final nowNear = event > 0;
+      if (nowNear && !_wasNear) {
+        // Transition to NEAR fires before physical touch — the primary rep trigger.
+        proximityRepCallback?.call();
+      }
+      _wasNear          = nowNear;
+      _isNear           = nowNear;
       _lastProximityRaw = event.toDouble();
     });
     // userAccelerometerEventStream removes gravity so magnitude at rest ≈ 0.

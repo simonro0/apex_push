@@ -176,7 +176,17 @@ class _RecordScreenState extends State<RecordScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(context.t('record'))),
-      body: Column(
+      body: GestureDetector(
+        // Horizontal swipe → previous/next month.
+        // fl_chart bar taps are FlTapUpEvent (pointer-up without drag), so
+        // they win the gesture arena independently — no conflict.
+        onHorizontalDragEnd: (details) {
+          final vel = details.primaryVelocity ?? 0;
+          if (vel > 200)       { _prevMonth(); } // swipe right → older month
+          else if (vel < -200) { _nextMonth(); } // swipe left  → newer month
+        },
+        behavior: HitTestBehavior.translucent,
+        child: Column(
         children: [
           // ── Month navigation ──────────────────────────────────────────────
           Padding(
@@ -254,7 +264,8 @@ class _RecordScreenState extends State<RecordScreen> {
             ),
           ),
         ],
-      ),
+      ),   // Column
+      ),   // GestureDetector
     );
   }
 }

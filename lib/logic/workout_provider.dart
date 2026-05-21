@@ -19,6 +19,10 @@ class WorkoutProvider with ChangeNotifier {
   bool _lastRepVerified = false;
   int  _verifiedRepsCount = 0;
 
+  /// Timestamp of the last proximity-triggered rep; used to debounce the
+  /// tap fallback so physical contact doesn't double-count a rep.
+  DateTime? _lastProximityRepTime;
+
   /// Per-rep sensor data collected during the current session.
   List<RepDetail> _repBuffer = [];
 
@@ -104,18 +108,37 @@ class WorkoutProvider with ChangeNotifier {
 
   void startWorkout({double sensorThreshold = 12.0}) {
     _sensors.dispose();
-    _sensors             = SensorService(impactThreshold: sensorThreshold);
-    _currentSessionCount = 0;
-    _lastRepVerified     = false;
-    _verifiedRepsCount   = 0;
-    _repBuffer           = [];
-    _sessionSplits       = [];
-    _startTime           = DateTime.now();
+    _sensors               = SensorService(impactThreshold: sensorThreshold);
+    _currentSessionCount   = 0;
+    _lastRepVerified       = false;
+    _verifiedRepsCount     = 0;
+    _lastProximityRepTime  = null;
+    _repBuffer             = [];
+    _sessionSplits         = [];
+    _startTime             = DateTime.now();
+    _sensors.proximityRepCallback = _onProximityRep;
     _sensors.init();
     notifyListeners();
   }
 
+  /// Called directly by the proximity sensor (fires before physical touch).
+  void _onProximityRep() {
+    _lastProximityRepTime = DateTime.now();
+    _countRep();
+  }
+
+  /// Called from a screen tap.  Acts as a silent fallback: skipped when the
+  /// proximity sensor already counted this rep within the last 700 ms.
   void incrementCount() {
+    final last = _lastProximityRepTime;
+    if (last != null &&
+        DateTime.now().difference(last).inMilliseconds < 700) {
+      return; // proximity already handled this rep — ignore the tap
+    }
+    _countRep();
+  }
+
+  void _countRep() {
     final result = _sensors.verifyPushUp();
     _lastRepVerified = result.verified;
     if (result.verified) _verifiedRepsCount++;
