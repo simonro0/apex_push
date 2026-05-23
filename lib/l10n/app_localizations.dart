@@ -182,6 +182,9 @@ class AppLocalizations {
       'support_the_app': 'App unterstützen',
       'donation_text':   'Wenn dir die App gefällt, freue ich mich über eine kleine Spende.',
       'donate':          'Spenden',
+      // ── Share ─────────────────────────────────────────────────────────────
+      'share_workout':   'Training teilen',
+      'share_btn':       'TEILEN',
     },
     'en': {
       // ── App / Dashboard ──────────────────────────────────────────────────
@@ -356,6 +359,9 @@ class AppLocalizations {
       'support_the_app': 'Support the App',
       'donation_text':   'If you enjoy the app, a small donation is always appreciated.',
       'donate':          'Donate',
+      // ── Share ─────────────────────────────────────────────────────────────
+      'share_workout':   'Share Workout',
+      'share_btn':       'SHARE',
     },
   };
 

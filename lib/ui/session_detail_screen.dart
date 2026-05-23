@@ -7,9 +7,11 @@ import 'package:provider/provider.dart';
 import '../data/database_helper.dart';
 import '../l10n/app_localizations.dart';
 import '../logic/settings_provider.dart';
+import '../logic/share_service.dart';
 import '../models/rep_detail.dart';
 import '../models/training_data.dart';
 import '../models/workout.dart';
+import 'widgets/share_card.dart';
 
 class SessionDetailScreen extends StatefulWidget {
   final Workout        workout;
@@ -36,10 +38,84 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   List<int>       _reconstructedSplits  = [];
   List<int>       _reconstructedTargets = [];
 
+  final _shareCardKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
     _loadRepDetails();
+  }
+
+  String _levelStr(BuildContext ctx) => switch (
+        (widget.workout.levelId, widget.workout.difficulty)) {
+    (final id?, final diff?) => '$id ($diff)',
+    (final id?, null)        => id,
+    _ when !widget.workout.isFreeTraining =>
+      ctx.tr('structured_training_label'),
+    _                        => ctx.tr('free_training_label'),
+  };
+
+  void _showShareSheet(BuildContext ctx, String levelStr) {
+    final locale = ctx.read<SettingsProvider>().locale;
+    final date   = AppLocalizations.formatDate(widget.workout.date, locale);
+
+    showModalBottomSheet<void>(
+      context: ctx,
+      backgroundColor: const Color(0xFF0E0E1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+              24, 20, 24, 16 + MediaQuery.of(sheetCtx).padding.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                ctx.t('share_workout'),
+                style: const TextStyle(
+                  color:      Colors.white,
+                  fontSize:   16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Card preview + RepaintBoundary for screenshot capture.
+              RepaintBoundary(
+                key: _shareCardKey,
+                child: ShareCard(
+                  workout:       widget.workout,
+                  formattedDate: date,
+                  levelStr:      levelStr,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C6DFF),
+                    foregroundColor: Colors.white,
+                    padding:         const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon:    const Icon(Icons.share_outlined),
+                  label:   Text(ctx.t('share_btn')),
+                  onPressed: () async {
+                    // Capture while the card is still in the widget tree,
+                    // then close the sheet before opening the share dialog.
+                    await ShareService.captureAndShare(_shareCardKey);
+                    if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _loadRepDetails() async {
@@ -84,18 +160,22 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     final secs     = widget.workout.durationSeconds % 60;
     final locale   = context.watch<SettingsProvider>().locale;
 
-    final levelStr = switch ((widget.workout.levelId, widget.workout.difficulty)) {
-      (final id?, final diff?) => '$id ($diff)',
-      (final id?, null)        => id,
-      _ when !widget.workout.isFreeTraining => context.t('structured_training_label'),
-      _                                      => context.t('free_training_label'),
-    };
+    final levelStr = _levelStr(context);
 
     final splits     = widget.splits.isNotEmpty ? widget.splits : _reconstructedSplits;
     final targetReps = widget.targetReps.isNotEmpty ? widget.targetReps : _reconstructedTargets;
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.t('training_completed'))),
+      appBar: AppBar(
+        title: Text(context.t('training_completed')),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            tooltip: context.t('share_workout'),
+            onPressed: () => _showShareSheet(context, levelStr),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
