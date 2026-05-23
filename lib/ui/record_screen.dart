@@ -1,15 +1,15 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
+import '../logic/workout_provider.dart';
 import '../models/workout.dart';
 import 'session_detail_screen.dart';
 import 'widgets/monthly_combo_chart.dart';
 
 class RecordScreen extends StatefulWidget {
-  final List<Workout> history;
-
-  const RecordScreen({super.key, required this.history});
+  const RecordScreen({super.key});
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -28,9 +28,9 @@ class _RecordScreenState extends State<RecordScreen> {
 
   // ── Data helpers ───────────────────────────────────────────────────────────
 
-  Map<int, int> _dailyReps(int year, int month) {
+  Map<int, int> _dailyReps(List<Workout> history, int year, int month) {
     final map = <int, int>{};
-    for (final w in widget.history) {
+    for (final w in history) {
       if (w.date.year == year && w.date.month == month) {
         map[w.date.day] = (map[w.date.day] ?? 0) + w.count;
       }
@@ -45,8 +45,22 @@ class _RecordScreenState extends State<RecordScreen> {
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
-  void _prevMonth() => setState(
-      () => _month = DateTime(_month.year, _month.month - 1));
+  void _prevMonth() {
+    final target   = DateTime(_month.year, _month.month - 1);
+    final provider = context.read<WorkoutProvider>();
+
+    // If the target month is older than the oldest loaded entry and there are
+    // more records in the DB, trigger a lazy-load before switching months.
+    if (provider.hasMoreHistory && provider.history.isNotEmpty) {
+      final oldest = provider.history.last.date;
+      final oldestMonth = DateTime(oldest.year, oldest.month);
+      if (!target.isAfter(oldestMonth)) {
+        provider.loadMoreHistory();
+      }
+    }
+
+    setState(() => _month = target);
+  }
 
   void _nextMonth() {
     final next = DateTime(_month.year, _month.month + 1);
@@ -86,9 +100,9 @@ class _RecordScreenState extends State<RecordScreen> {
 
   // ── Tap handler ────────────────────────────────────────────────────────────
 
-  void _onBarTap(int x) {
+  void _onBarTap(List<Workout> history, int x) {
     final day = x + 1;
-    final sessions = widget.history.where((w) =>
+    final sessions = history.where((w) =>
         w.date.year == _month.year &&
         w.date.month == _month.month &&
         w.date.day == day).toList();
@@ -160,10 +174,11 @@ class _RecordScreenState extends State<RecordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final year  = _month.year;
-    final month = _month.month;
-    final days  = _daysInMonth(year, month);
-    final data  = _dailyReps(year, month);
+    final history = context.watch<WorkoutProvider>().history;
+    final year    = _month.year;
+    final month   = _month.month;
+    final days    = _daysInMonth(year, month);
+    final data    = _dailyReps(history, year, month);
 
     double valueFor(int reps) =>
         _showCalories ? reps * 0.5 : reps.toDouble();
@@ -244,7 +259,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 return MonthlyComboChart(
                   barGroups: barGroups,
                   maxY:      maxVal,
-                  onBarTap:  _onBarTap,
+                  onBarTap:  (x) => _onBarTap(history, x),
                 );
               }),
             ),

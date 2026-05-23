@@ -102,10 +102,63 @@ class DatabaseHelper {
     return db.insert('workouts', workout.toMap());
   }
 
-  Future<List<Workout>> readAllWorkouts() async {
+  /// Page size used by [WorkoutProvider] for lazy loading.
+  static const int pageSize = 500;
+
+  /// Returns [limit] workouts starting at [offset], newest first.
+  Future<List<Workout>> readAllWorkouts({
+    int limit  = pageSize,
+    int offset = 0,
+  }) async {
     final db = await instance.database;
-    final result = await db.query('workouts', orderBy: 'date DESC');
+    final result = await db.query(
+      'workouts',
+      orderBy: 'date DESC',
+      limit:   limit,
+      offset:  offset,
+    );
     return result.map(Workout.fromMap).toList();
+  }
+
+  /// Total number of workout rows (for pagination boundary check).
+  Future<int> getWorkoutCount() async {
+    final db  = await instance.database;
+    final res = await db.rawQuery('SELECT COUNT(*) AS c FROM workouts');
+    return (res.first['c'] as int?) ?? 0;
+  }
+
+  /// Sum of all rep counts across all workouts.
+  Future<int> getTotalReps() async {
+    final db  = await instance.database;
+    final res = await db.rawQuery(
+      'SELECT COALESCE(SUM(count), 0) AS t FROM workouts',
+    );
+    return (res.first['t'] as int?) ?? 0;
+  }
+
+  /// Maximum total reps in a single calendar day.
+  Future<int> getBestDayReps() async {
+    final db  = await instance.database;
+    final res = await db.rawQuery('''
+      SELECT COALESCE(MAX(daily), 0) AS m
+      FROM (SELECT SUM(count) AS daily
+            FROM workouts
+            GROUP BY substr(date, 1, 10))
+    ''');
+    return (res.first['m'] as int?) ?? 0;
+  }
+
+  /// Average total reps per calendar day that has at least one workout.
+  Future<double> getAverageDailyReps() async {
+    final db  = await instance.database;
+    final res = await db.rawQuery('''
+      SELECT COALESCE(AVG(daily), 0.0) AS a
+      FROM (SELECT SUM(count) AS daily
+            FROM workouts
+            GROUP BY substr(date, 1, 10))
+    ''');
+    final val = res.first['a'];
+    return val == null ? 0.0 : (val as num).toDouble();
   }
 
   Future<void> batchInsert(List<Workout> workouts) async {

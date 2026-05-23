@@ -12,6 +12,11 @@ class WorkoutProvider with ChangeNotifier {
   late SensorService _sensors;
 
   List<Workout> _history = [];
+  bool   _hasMoreHistory   = false;
+  int    _totalReps        = 0;
+  int    _bestDayReps      = 0;
+  double _avgDailyReps     = 0.0;
+
   ActiveProgram _activeProgram = const ActiveProgram(unitId: '1-1', difficulty: 'Easy');
 
   int _currentSessionCount = 0;
@@ -37,36 +42,20 @@ class WorkoutProvider with ChangeNotifier {
   List<Workout> get history => _history;
   ActiveProgram get activeProgram => _activeProgram;
 
+  /// True if there are older workouts not yet loaded.
+  bool get hasMoreHistory => _hasMoreHistory;
+
   /// Immutable view of per-set rep counts recorded this session.
   List<int> get sessionSplits => List.unmodifiable(_sessionSplits);
 
   /// Number of sensor-verified reps in the last completed session.
   int get lastVerifiedReps => _verifiedRepsCount;
 
-  /// Pre-computed stats derived from history.
-  int get bestDayCount {
-    if (_history.isEmpty) return 0;
-    final totals = _dailyTotals();
-    return totals.values.reduce((a, b) => a > b ? a : b);
-  }
+  // ── Stats (SQL-backed, always cover all workouts) ──────────────────────────
 
-  int get totalCount => _history.fold(0, (s, w) => s + w.count);
-
-  double get averageDailyCount {
-    final totals = _dailyTotals();
-    if (totals.isEmpty) return 0;
-    final sum = totals.values.fold(0, (s, v) => s + v);
-    return sum / totals.length;
-  }
-
-  Map<String, int> _dailyTotals() {
-    final map = <String, int>{};
-    for (final w in _history) {
-      final key = '${w.date.year}-${w.date.month}-${w.date.day}';
-      map[key] = (map[key] ?? 0) + w.count;
-    }
-    return map;
-  }
+  int    get bestDayCount      => _bestDayReps;
+  int    get totalCount        => _totalReps;
+  double get averageDailyCount => _avgDailyReps;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -201,8 +190,33 @@ class WorkoutProvider with ChangeNotifier {
 
   // ── Data management ────────────────────────────────────────────────────────
 
+  /// Loads the first page of history + refreshes all SQL-backed stats.
   Future<void> loadHistoryFromDb() async {
-    _history = await DatabaseHelper.instance.readAllWorkouts();
+    final results = await Future.wait([
+      DatabaseHelper.instance.readAllWorkouts(),
+      DatabaseHelper.instance.getWorkoutCount(),
+      DatabaseHelper.instance.getTotalReps(),
+      DatabaseHelper.instance.getBestDayReps(),
+      DatabaseHelper.instance.getAverageDailyReps(),
+    ]);
+    _history        = results[0] as List<Workout>;
+    final total     = results[1] as int;
+    _totalReps      = results[2] as int;
+    _bestDayReps    = results[3] as int;
+    _avgDailyReps   = results[4] as double;
+    _hasMoreHistory = _history.length < total;
+    notifyListeners();
+  }
+
+  /// Appends the next page of older workouts to [history].
+  Future<void> loadMoreHistory() async {
+    if (!_hasMoreHistory) return;
+    final more = await DatabaseHelper.instance.readAllWorkouts(
+      offset: _history.length,
+    );
+    _history = [..._history, ...more];
+    final total     = await DatabaseHelper.instance.getWorkoutCount();
+    _hasMoreHistory = _history.length < total;
     notifyListeners();
   }
 

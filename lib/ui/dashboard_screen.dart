@@ -270,8 +270,7 @@ class _NavigationButtons extends StatelessWidget {
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            RecordScreen(history: provider.history),
+                        builder: (_) => const RecordScreen(),
                       ),
                     ),
                   ),
