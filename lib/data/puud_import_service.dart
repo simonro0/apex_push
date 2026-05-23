@@ -30,21 +30,28 @@ class PuudImportService {
   static Future<List<PuudRecord>?> importFromPuud() async {
     FilePickerResult? result;
     try {
+      // withData: true → reads via ContentResolver, avoiding content:// URI
+      // path issues that cause silent import failures on Android.
       result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['puud'],
+        withData: true,
       );
     } catch (_) {
       return null;
     }
-    if (result == null || result.files.single.path == null) return null;
+    if (result == null) return null;
 
-    final puudPath = result.files.single.path!;
+    final file = result.files.single;
+    // Prefer in-memory bytes from withData; fall back to path read.
+    final bytes = file.bytes ??
+        (file.path != null ? await File(file.path!).readAsBytes() : null);
+    if (bytes == null) return null;
+
     final tmpDir = await getTemporaryDirectory();
     final dbPath = '${tmpDir.path}/puud_import_${DateTime.now().millisecondsSinceEpoch}.db';
 
     try {
-      final bytes = await File(puudPath).readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);
 
       final dbEntry = archive.files.where((f) => f.name == 'PushUps_Mos.db').firstOrNull;

@@ -1,6 +1,6 @@
 # ApexPush – Codebase-Dokumentation
 
-> Zuletzt aktualisiert: 2026-05-23 (UI-Verbesserungen, file_picker v11, Share-Karte Sets)  
+> Zuletzt aktualisiert: 2026-05-23 (puud Android-Fix, notification_screen Cleanup, Backlog-Update)  
 > Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
@@ -351,8 +351,11 @@ Der **Streak-Schutz** (`_streakReminderId = 1`) feuert am letzten möglichen Tra
 
 **`ShareCard`** (`lib/ui/widgets/share_card.dart`)
 - Branded dark Card (360 px breit, fester Hintergrund `#0E0E1A`/`#1A1A2E`)
-- Inhalt: App-Logo + Name, Datum, große Wiederholungszahl, Push-Up-Label, Satz-Splits (z.B. `12 · 10 · 8 · 8 · 8`, leer bei freiem Training), Dauer-Chip, Kalorien-Chip
-- Parameter: `splits: List<int>` (statt Level-String) — zeigt tatsächliche Satz-Wiederholungen
+- Inhalt: App-Logo + Name, Datum, große Wiederholungszahl, Push-Up-Label, optionales Sub-Label, Dauer-Chip, Kalorien-Chip
+- Parameter: `subLabel: String?` — wird in `session_detail_screen.dart` berechnet:
+  - Strukturiertes Training: tatsächliche Satz-Splits, z.B. `"12 · 10 · 8 · 8 · 8"`
+  - Freies Training: lokalisiertes `"Freies Training"` / `"Free Training"`
+  - `null` → Sub-Label wird nicht gerendert
 - Design ist **theme-unabhängig** — sieht im hellen und dunklen App-Theme immer gleich aus
 
 **`SettingsScreen`** / **`NotificationScreen`** / **`AboutScreen`**

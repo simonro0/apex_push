@@ -72,7 +72,7 @@ class NotificationScreen extends StatelessWidget {
   String _fmt(int h, int m) =>
       '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
 
-  String _streakBody(BuildContext context, SettingsProvider settings) {
+  String _streakBody(SettingsProvider settings) {
     final hoursLeft = 24 - settings.reminderHour;
     return AppLocalizations
         .translate('streak_notif_body', settings.locale)
@@ -133,7 +133,7 @@ class NotificationScreen extends StatelessWidget {
           hour:   picked.hour,
           minute: picked.minute,
           title:  AppLocalizations.translate('streak_notif_title', settings.locale),
-          body:   _streakBody(context, settings),
+          body:   _streakBody(settings),
         );
       }
     }
@@ -155,7 +155,7 @@ class NotificationScreen extends StatelessWidget {
           hour:   settings.reminderHour,
           minute: settings.reminderMinute,
           title:  AppLocalizations.translate('streak_notif_title', settings.locale),
-          body:   _streakBody(context, settings),
+          body:   _streakBody(settings),
         );
       }
     } else {
