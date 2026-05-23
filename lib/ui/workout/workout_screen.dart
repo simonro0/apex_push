@@ -368,11 +368,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ),
                 if (!isBurnout && target > 0 && setCount < target)
                   Text(
-                    '${target - setCount}',
+                    context.tp('countdown_remaining', {'n': '${target - setCount}'}),
                     style: const TextStyle(
                       color: Colors.white38,
-                      fontSize: 28,
+                      fontSize: 20,
                       fontWeight: FontWeight.w300,
+                    ),
+                  )
+                else if (!isBurnout && target > 0 && setCount > target)
+                  Text(
+                    context.tp('countdown_extra', {'n': '${setCount - target}'}),
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
               ],
@@ -406,8 +415,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     style: const TextStyle(fontSize: 18, color: Colors.white),
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextButton(
+                const SizedBox(height: 10),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white54,
+                    side: const BorderSide(color: Colors.white24),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    minimumSize: const Size(double.infinity, 0),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
                   onPressed: () async {
                     final ok = await _showAbortSessionDialog(context);
                     if (ok != true || !mounted) return;
@@ -415,7 +432,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   },
                   child: Text(
                     context.t('abort_training_link'),
-                    style: const TextStyle(color: Colors.white38, fontSize: 14),
+                    style: const TextStyle(fontSize: 16),
                   ),
                 ),
               ],
@@ -585,7 +602,7 @@ class _SetChip extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(10),
@@ -600,7 +617,7 @@ class _SetChip extends StatelessWidget {
             'S${index + 1}',
             style: TextStyle(
               color: fg.withAlpha(180),
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -608,13 +625,13 @@ class _SetChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: fg,
-              fontSize: 16,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
           Text(
             sublabel,
-            style: TextStyle(color: fg.withAlpha(140), fontSize: 9),
+            style: TextStyle(color: fg.withAlpha(140), fontSize: 11),
           ),
         ],
       ),
@@ -636,7 +653,7 @@ class _BurnoutChip extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(10),
@@ -648,18 +665,18 @@ class _BurnoutChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.local_fire_department,
-              size: 12, color: fg.withAlpha(180)),
+              size: 14, color: fg.withAlpha(180)),
           Text(
             achieved != null ? '${achieved!}' : context.t('burnout_chip'),
             style: TextStyle(
               color: fg,
-              fontSize: 16,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
           Text(
             context.t('reps_short'),
-            style: TextStyle(color: fg.withAlpha(140), fontSize: 9),
+            style: TextStyle(color: fg.withAlpha(140), fontSize: 11),
           ),
         ],
       ),

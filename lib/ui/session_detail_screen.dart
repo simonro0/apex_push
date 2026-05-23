@@ -55,7 +55,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     _                        => ctx.tr('free_training_label'),
   };
 
-  void _showShareSheet(BuildContext ctx, String levelStr) {
+  void _showShareSheet(BuildContext ctx, List<int> effectiveSplits) {
     final locale = ctx.read<SettingsProvider>().locale;
     final date   = AppLocalizations.formatDate(widget.workout.date, locale);
 
@@ -87,7 +87,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                 child: ShareCard(
                   workout:       widget.workout,
                   formattedDate: date,
-                  levelStr:      levelStr,
+                  splits:        effectiveSplits,
                 ),
               ),
               const SizedBox(height: 20),
@@ -172,7 +172,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           IconButton(
             icon: const Icon(Icons.share_outlined),
             tooltip: context.t('share_workout'),
-            onPressed: () => _showShareSheet(context, levelStr),
+            onPressed: () => _showShareSheet(context, splits),
           ),
         ],
       ),

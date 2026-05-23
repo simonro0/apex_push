@@ -1,6 +1,6 @@
 # ApexPush – Codebase-Dokumentation
 
-> Zuletzt aktualisiert: 2026-05-23 (Wakelock, Audio-Zuverlässigkeit, Meilenstein-Ton, Countdown)  
+> Zuletzt aktualisiert: 2026-05-23 (UI-Verbesserungen, file_picker v11, Share-Karte Sets)  
 > Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
@@ -312,9 +312,10 @@ Täglich wiederkehrende Erinnerung via `flutter_local_notifications` + `timezone
 - **Wakelock**: `WakelockPlus.enable()` in `initState` (post-frame), `WakelockPlus.disable()` in `dispose()` — Display bleibt während des gesamten Trainings an
 - **Freies Training**: schwarzer Vollbild-Tap-Zähler, FINISH-Button
 - **Strukturiertes Training**:
-  - Aktiver Satz: `Satz N von 5 – Ziel X Wdh.`, großer Hochzähl-Zähler (grün bei Zielerreichung), darunter kleiner muted Runterzähl-Zähler (`target − setCount`, nur solange Ziel noch nicht erreicht), SATZ/TRAINING-ABSCHLIESSEN-Button, Abbrechen-Link
+  - Aktiver Satz: `Satz N von 5 – Ziel X Wdh.`, großer Hochzähl-Zähler (grün bei Zielerreichung), darunter: „noch N Wdh." (muted, solange unter Ziel) / „N zusätzl. Wdh." (grün, wenn Ziel überschritten), SATZ/TRAINING-ABSCHLIESSEN-Button, `OutlinedButton` für „Training abbrechen" (gleiches Größenlayout, dezenter Rahmen)
   - Pause: Countdown (orange bei ≤ 3 s), Vorschau nächster Satz, PAUSE ÜBERSPRINGEN
   - Audio: Meilenstein-Ton bei jeder 10. Wdh., sonst Rep-Tick; Countdown 3-2-1, Pause-Ende, Ziel-Ton
+  - Satz-Chips in der Übersichtsleiste: vergrößert (20 px Zahl, 12 px Label, 11 px Sublabel)
 - Post-Training-Flow: SessionDetailScreen → Schwierigkeitsfeedback-Dialog → ggf. Level-Änderung → Dashboard
 
 **`LevelPickerScreen`**
@@ -340,7 +341,8 @@ Täglich wiederkehrende Erinnerung via `flutter_local_notifications` + `timezone
 
 **`ShareCard`** (`lib/ui/widgets/share_card.dart`)
 - Branded dark Card (360 px breit, fester Hintergrund `#0E0E1A`/`#1A1A2E`)
-- Inhalt: App-Logo + Name, Datum, große Wiederholungszahl, Push-Up-Label, Level, Dauer-Chip, Kalorien-Chip
+- Inhalt: App-Logo + Name, Datum, große Wiederholungszahl, Push-Up-Label, Satz-Splits (z.B. `12 · 10 · 8 · 8 · 8`, leer bei freiem Training), Dauer-Chip, Kalorien-Chip
+- Parameter: `splits: List<int>` (statt Level-String) — zeigt tatsächliche Satz-Wiederholungen
 - Design ist **theme-unabhängig** — sieht im hellen und dunklen App-Theme immer gleich aus
 
 **`SettingsScreen`** / **`NotificationScreen`** / **`AboutScreen`**
@@ -442,7 +444,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | `archive`                    | ZIP für .apxbak und .puud                        |
 | `crypto`                     | SHA-256 Prüfsummen im Backup                     |
 | `csv`                        | CSV-Parsing und -Generierung                     |
-| `file_picker ^11.0.2`        | Dateiauswahl (Import) + SAF Save (Export)        |
+| `file_picker ^11.0.2`        | Dateiauswahl (Import) + SAF Save (Export); v11 nutzt statische Methoden `FilePicker.pickFiles()` / `FilePicker.saveFile()` |
 | `share_plus`                 | System-Share für CSV-Export und Workout-Bilder   |
 | `path_provider`              | Temp-Verzeichnis                                 |
 | `path`                       | Pfad-Utilities für SQLite                        |

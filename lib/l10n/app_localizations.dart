@@ -188,6 +188,9 @@ class AppLocalizations {
       // ── Share ─────────────────────────────────────────────────────────────
       'share_workout':   'Training teilen',
       'share_btn':       'TEILEN',
+      // ── Workout countdown ─────────────────────────────────────────────────
+      'countdown_remaining': 'noch {n} Wdh.',
+      'countdown_extra':     '{n} zusätzl. Wdh.',
     },
     'en': {
       // ── App / Dashboard ──────────────────────────────────────────────────
@@ -368,6 +371,9 @@ class AppLocalizations {
       // ── Share ─────────────────────────────────────────────────────────────
       'share_workout':   'Share Workout',
       'share_btn':       'SHARE',
+      // ── Workout countdown ─────────────────────────────────────────────────
+      'countdown_remaining': '{n} left',
+      'countdown_extra':     '{n} extra',
     },
   };
 

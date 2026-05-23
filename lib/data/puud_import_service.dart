@@ -30,7 +30,7 @@ class PuudImportService {
   static Future<List<PuudRecord>?> importFromPuud() async {
     FilePickerResult? result;
     try {
-      result = await FilePicker.platform.pickFiles(
+      result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['puud'],
       );

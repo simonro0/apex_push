@@ -45,7 +45,7 @@ class BackupService {
 
     // SAF "Save as" dialog — the user picks the folder (e.g. Downloads).
     // No storage permission needed; the platform writes via ContentResolver.
-    return FilePicker.platform.saveFile(
+    return FilePicker.saveFile(
       fileName: 'apex_push_backup_${_timestamp()}.apxbak',
       bytes:    zipBytes,
     );
@@ -60,7 +60,7 @@ class BackupService {
     try {
       // withData: true → file_picker reads via ContentResolver, avoiding
       // content:// URI path issues that cause silent import failures on Android.
-      result = await FilePicker.platform.pickFiles(
+      result = await FilePicker.pickFiles(
         type: FileType.any,
         withData: true,
       );
