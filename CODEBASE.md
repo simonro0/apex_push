@@ -1,6 +1,6 @@
 # ApexPush – Codebase-Dokumentation
 
-> Zuletzt aktualisiert: 2026-05-23  
+> Zuletzt aktualisiert: 2026-05-23 (F3)  
 > Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
@@ -330,6 +330,7 @@ Täglich wiederkehrende Erinnerung via `flutter_local_notifications` + `timezone
 - Summary-Karte: Datum, Level, Gesamtreps, Dauer, Kalorien
 - Satztabelle (wenn `splits` vorhanden): Ziel vs. Erreicht, Pass/Fail-Icon
 - **Share-Button** (AppBar-Icon): öffnet Bottom Sheet mit `ShareCard`-Vorschau; Capture via `ShareService.captureAndShare()` erfolgt **vor** dem Schließen des Sheets (Widget muss im Tree sein)
+- `_WeeklyCard`: Mo–So-Kreise + **Streak** (🔥 N Tage, ≤1 Ruhetag Toleranz) + **Volumen- und Tempo-Vergleich** zur Vorwoche (↑/↓ %)
 - Post-Training: mit Splits (direkt nach Workout)
 - Historisch: ohne Splits (aus RecordScreen geöffnet)
 
@@ -458,7 +459,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 |---|---------------------------------|--------|------------------------------------------------------------------------------|
 | F1 | Bewegungsanalyse-Graph         | ✅ | SessionDetailScreen zeigt Sensor-Chart (peakG + proximity über Zeit)         |
 | F2 | Practice-Flow mit Empfehlung   | ✅ | Level-Empfehlung nach freiem Training implementiert                          |
-| F3 | Wochenübersicht                | 🔄 | Mo–So-Ansicht im Dashboard vorhanden; ggf. Erweiterung (Streak, Vorwoche)   |
+| F3 | Wochenübersicht                | ✅ | Streak (1-Tag-Toleranz), Volumen- und Tempo-Vergleich zur Vorwoche          |
 | F4 | Share-Feature (Phase 1)        | ✅ | Share-Karte via RepaintBoundary → PNG → share_plus in SessionDetailScreen    |
 | F4 | Strava-Integration (Phase 2)   | ⏳ | OAuth2 + Strava API — noch nicht begonnen                                    |
 
