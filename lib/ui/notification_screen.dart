@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../logic/notification_service.dart';
 import '../logic/settings_provider.dart';
+import '../logic/workout_provider.dart';
 
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});
@@ -17,7 +18,7 @@ class NotificationScreen extends StatelessWidget {
       appBar: AppBar(title: Text(context.t('notifications'))),
       body: ListView(
         children: [
-          // ── Daily reminder toggle ──────────────────────────────────────────
+          // ── Daily reminder ─────────────────────────────────────────────────
           SwitchListTile(
             secondary: const Icon(Icons.notifications_outlined),
             title:     Text(context.t('daily_reminder')),
@@ -50,13 +51,35 @@ class NotificationScreen extends StatelessWidget {
                     ),
               ),
             ),
+
+          const Divider(indent: 16, endIndent: 16),
+
+          // ── Streak protection ──────────────────────────────────────────────
+          SwitchListTile(
+            secondary: const Icon(Icons.local_fire_department_outlined),
+            title:     Text(context.t('streak_reminder')),
+            subtitle:  Text(context.t('streak_reminder_desc')),
+            value:     settings.streakReminderEnabled,
+            onChanged: (v) => _toggleStreakReminder(context, settings, v),
+          ),
         ],
       ),
     );
   }
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
   String _fmt(int h, int m) =>
       '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+
+  String _streakBody(BuildContext context, SettingsProvider settings) {
+    final hoursLeft = 24 - settings.reminderHour;
+    return AppLocalizations
+        .translate('streak_notif_body', settings.locale)
+        .replaceAll('{h}', '$hoursLeft');
+  }
+
+  // ── Daily reminder toggle ──────────────────────────────────────────────────
 
   Future<void> _toggle(
       BuildContext context, SettingsProvider settings, bool enable) async {
@@ -73,7 +96,8 @@ class NotificationScreen extends StatelessWidget {
       );
     } else {
       await settings.setNotificationsEnabled(false);
-      await NotificationService.instance.cancelAll();
+      // Cancel only the daily reminder; streak reminder is independent.
+      await NotificationService.instance.cancelDailyReminder();
     }
   }
 
@@ -89,11 +113,53 @@ class NotificationScreen extends StatelessWidget {
     if (picked == null || !context.mounted) return;
     await settings.setReminderTime(picked.hour, picked.minute);
     if (!context.mounted) return;
+
+    // Reschedule daily reminder at the new time.
     await NotificationService.instance.scheduleDailyReminder(
       hour:   picked.hour,
       minute: picked.minute,
       title:  context.tr('notif_title'),
       body:   context.tr('notif_body'),
     );
+
+    // If streak reminder is on, reschedule it at the new time too.
+    if (!context.mounted) return;
+    if (settings.streakReminderEnabled) {
+      final lastWorkout =
+          context.read<WorkoutProvider>().history.firstOrNull;
+      if (lastWorkout != null) {
+        await NotificationService.instance.scheduleStreakReminder(
+          lastWorkoutDate: lastWorkout.date,
+          hour:   picked.hour,
+          minute: picked.minute,
+          title:  AppLocalizations.translate('streak_notif_title', settings.locale),
+          body:   _streakBody(context, settings),
+        );
+      }
+    }
+  }
+
+  // ── Streak reminder toggle ─────────────────────────────────────────────────
+
+  Future<void> _toggleStreakReminder(
+      BuildContext context, SettingsProvider settings, bool enable) async {
+    await settings.setStreakReminderEnabled(enable);
+    if (!context.mounted) return;
+
+    if (enable) {
+      final lastWorkout =
+          context.read<WorkoutProvider>().history.firstOrNull;
+      if (lastWorkout != null && context.mounted) {
+        await NotificationService.instance.scheduleStreakReminder(
+          lastWorkoutDate: lastWorkout.date,
+          hour:   settings.reminderHour,
+          minute: settings.reminderMinute,
+          title:  AppLocalizations.translate('streak_notif_title', settings.locale),
+          body:   _streakBody(context, settings),
+        );
+      }
+    } else {
+      await NotificationService.instance.cancelStreakReminder();
+    }
   }
 }

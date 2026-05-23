@@ -8,6 +8,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../logic/audio_service.dart';
+import '../../logic/notification_service.dart';
 import '../../logic/settings_provider.dart';
 import '../../logic/workout_provider.dart';
 import '../../models/training_data.dart';
@@ -171,8 +172,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final targetRepsCopy = List<int>.from(_targetReps);
     final splitsCopy     = List<int>.from(provider.sessionSplits);
 
+    // Read settings before the async gap (context must not be used after await).
+    final settings     = context.read<SettingsProvider>();
     final verifiedReps = provider.lastVerifiedReps;
     final workout      = await provider.saveWorkout(isFreeTraining: isFree);
+    if (!mounted) return;
+
+    // Reschedule streak reminder: fires once on workout.date + 2 days.
+    if (settings.streakReminderEnabled) {
+      final hoursLeft = 24 - settings.reminderHour;
+      final locale    = settings.locale;
+      await NotificationService.instance.scheduleStreakReminder(
+        lastWorkoutDate: workout.date,
+        hour:   settings.reminderHour,
+        minute: settings.reminderMinute,
+        title:  AppLocalizations.translate('streak_notif_title', locale),
+        body:   AppLocalizations.translate('streak_notif_body', locale)
+            .replaceAll('{h}', '$hoursLeft'),
+      );
+    }
     if (!mounted) return;
 
     // Capture history after save (includes the session just recorded).

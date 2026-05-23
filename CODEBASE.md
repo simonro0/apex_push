@@ -261,11 +261,11 @@ Weitere Methoden: `loadActiveProgram()`, `saveActiveProgram()`, `stepDifficulty(
 
 Persistiert alle Benutzereinstellungen in SharedPreferences:
 
-| Gruppe          | Einstellungen                                                             |
-|-----------------|---------------------------------------------------------------------------|
-| Erscheinungsbild| `themeMode` (dark/light/system), `locale` (de/en)                        |
-| Audio           | `audioEnabled`, `repSoundEnabled`, `audioVolume`                          |
-| Benachrichtigungen | `notificationsEnabled`, `reminderHour`, `reminderMinute`               |
+| Gruppe          | Einstellungen                                                                          |
+|-----------------|----------------------------------------------------------------------------------------|
+| Erscheinungsbild| `themeMode` (dark/light/system), `locale` (de/en)                                     |
+| Audio           | `audioEnabled`, `repSoundEnabled`, `audioVolume`                                       |
+| Benachrichtigungen | `notificationsEnabled`, `reminderHour`, `reminderMinute`, `streakReminderEnabled`  |
 | Training        | `restSecondsEasy/Normal/Hard` (überschreiben TrainingData-Defaults), `sensorThreshold` |
 
 `toBackupMap()` / `restoreFromBackup()` für Integration mit BackupService.
@@ -295,7 +295,17 @@ Statische Hilfsklasse zum Teilen eines Workout-Bildes:
 
 **`NotificationService`** (`lib/logic/notification_service.dart`)
 
-Täglich wiederkehrende Erinnerung via `flutter_local_notifications` + `timezone`. Wird in `main.dart` initialisiert.
+Tägliche und einmalige Benachrichtigungen via `flutter_local_notifications` + `timezone`. Wird in `main.dart` initialisiert.
+
+| Methode                   | Typ      | Beschreibung                                                          |
+|---------------------------|----------|-----------------------------------------------------------------------|
+| `scheduleDailyReminder()` | Täglich  | Feuert jeden Tag um die eingestellte Uhrzeit                          |
+| `scheduleStreakReminder()` | Einmalig | Feuert einmal auf `lastWorkoutDate + 2 Tage`; wird nach jedem Workout neu geplant |
+| `cancelDailyReminder()`   | –        | Nur die tägliche Erinnerung stornieren                                |
+| `cancelStreakReminder()`   | –        | Nur den Streak-Schutz stornieren                                      |
+| `cancelAll()`             | –        | Alle Benachrichtigungen stornieren                                    |
+
+Der **Streak-Schutz** (`_streakReminderId = 1`) feuert am letzten möglichen Trainingstag (2 Tage nach letztem Workout), um 24h vor Streak-Verlust zu warnen. Die Benachrichtigung enthält die verbleibenden Stunden bis Mitternacht (`24 − reminderHour`).
 
 ---
 
@@ -350,7 +360,9 @@ Täglich wiederkehrende Erinnerung via `flutter_local_notifications` + `timezone
 - Audio-Toggle, Lautstärke-Slider, Rep-Sound-Toggle
 - Ruhezeiten per Schwierigkeit (Easy/Normal/Hard)
 - Sensor-Schwellwert (Slider)
-- Benachrichtigungen (Zeit-Picker)
+- Benachrichtigungen:
+  - Tägliche Erinnerung (Toggle + Zeit-Picker)
+  - **Streak-Schutz** (eigener Toggle, unabhängig von der täglichen Erinnerung): plant einmalige Benachrichtigung für `letzterTrainingTag + 2`; zeigt verbleibende Stunden bis Mitternacht
 - Backup-Aktionen: Export, Import, .puud, CSV, Löschen
 - App-Version via `package_info_plus`
 

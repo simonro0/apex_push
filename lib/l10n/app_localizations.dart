@@ -177,6 +177,10 @@ class AppLocalizations {
           'Aktiviere die tägliche Erinnerung, um eine Benachrichtigung zu erhalten.',
       'notif_title': 'Zeit für dein Training!',
       'notif_body': 'Starte jetzt deine Liegestütze und erreiche dein Ziel.',
+      'streak_reminder':      'Streak-Schutz',
+      'streak_reminder_desc': 'Warnt dich, wenn heute der letzte Tag für deinen Streak ist',
+      'streak_notif_title':   'Streak in Gefahr!',
+      'streak_notif_body':    'Noch ca. {h}h bis Mitternacht – trainiere heute, um deinen Streak zu erhalten.',
       // ── About ─────────────────────────────────────────────────────────────
       'about':           'Über die App',
       'version':         'Version',
@@ -360,6 +364,10 @@ class AppLocalizations {
           'Enable the daily reminder to receive a notification.',
       'notif_title': 'Time for your workout!',
       'notif_body': 'Start your push-ups now and reach your goal.',
+      'streak_reminder':      'Streak Protection',
+      'streak_reminder_desc': 'Warns you when today is the last day to keep your streak',
+      'streak_notif_title':   'Streak at risk!',
+      'streak_notif_body':    'About {h}h until midnight – train today to keep your streak alive.',
       // ── About ─────────────────────────────────────────────────────────────
       'about':           'About',
       'version':         'Version',

@@ -14,9 +14,10 @@ class SettingsProvider with ChangeNotifier {
   double _audioVolume     = 1.0;
 
   // ── Notifications ──────────────────────────────────────────────────────────
-  bool _notificationsEnabled = false;
-  int  _reminderHour         = 9;
-  int  _reminderMinute       = 0;
+  bool _notificationsEnabled   = false;
+  int  _reminderHour           = 9;
+  int  _reminderMinute         = 0;
+  bool _streakReminderEnabled  = false;
 
   // ── Training ───────────────────────────────────────────────────────────────
   int    _restSecondsEasy   = 30;
@@ -28,9 +29,10 @@ class SettingsProvider with ChangeNotifier {
 
   ThemeMode get themeMode        => _themeMode;
   String    get locale           => _locale;
-  bool get notificationsEnabled => _notificationsEnabled;
-  int  get reminderHour         => _reminderHour;
-  int  get reminderMinute       => _reminderMinute;
+  bool get notificationsEnabled  => _notificationsEnabled;
+  int  get reminderHour          => _reminderHour;
+  int  get reminderMinute        => _reminderMinute;
+  bool get streakReminderEnabled => _streakReminderEnabled;
 
   bool      get audioEnabled     => _audioEnabled;
   bool      get repSoundEnabled  => _repSoundEnabled;
@@ -52,9 +54,10 @@ class SettingsProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _themeMode        = _modeFromString(prefs.getString('theme_mode') ?? 'dark');
     _locale           = prefs.getString('locale')              ?? 'de';
-    _notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
-    _reminderHour         = prefs.getInt('reminder_hour')          ?? 9;
-    _reminderMinute       = prefs.getInt('reminder_minute')        ?? 0;
+    _notificationsEnabled  = prefs.getBool('notifications_enabled')  ?? false;
+    _reminderHour          = prefs.getInt('reminder_hour')           ?? 9;
+    _reminderMinute        = prefs.getInt('reminder_minute')         ?? 0;
+    _streakReminderEnabled = prefs.getBool('streak_reminder_enabled') ?? false;
     _audioEnabled     = prefs.getBool('audio_enabled')         ?? true;
     _repSoundEnabled  = prefs.getBool('rep_sound_enabled')     ?? true;
     _audioVolume      = prefs.getDouble('audio_volume')        ?? 1.0;
@@ -84,6 +87,13 @@ class SettingsProvider with ChangeNotifier {
     _notificationsEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('notifications_enabled', value);
+    notifyListeners();
+  }
+
+  Future<void> setStreakReminderEnabled(bool value) async {
+    _streakReminderEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('streak_reminder_enabled', value);
     notifyListeners();
   }
 
@@ -154,9 +164,10 @@ class SettingsProvider with ChangeNotifier {
     'audio_enabled':          _audioEnabled.toString(),
     'rep_sound_enabled':      _repSoundEnabled.toString(),
     'audio_volume':           _audioVolume.toString(),
-    'notifications_enabled':  _notificationsEnabled.toString(),
-    'reminder_hour':          _reminderHour.toString(),
-    'reminder_minute':        _reminderMinute.toString(),
+    'notifications_enabled':   _notificationsEnabled.toString(),
+    'reminder_hour':           _reminderHour.toString(),
+    'reminder_minute':         _reminderMinute.toString(),
+    'streak_reminder_enabled': _streakReminderEnabled.toString(),
     'rest_easy':              _restSecondsEasy.toString(),
     'rest_normal':            _restSecondsNormal.toString(),
     'rest_hard':              _restSecondsHard.toString(),
@@ -187,6 +198,9 @@ class SettingsProvider with ChangeNotifier {
         int.tryParse(map['reminder_hour']!)  ?? 9,
         int.tryParse(map['reminder_minute'] ?? '0') ?? 0,
       );
+    }
+    if (map.containsKey('streak_reminder_enabled')) {
+      await setStreakReminderEnabled(map['streak_reminder_enabled'] == 'true');
     }
     if (map.containsKey('rest_easy')) {
       await setRestSecondsEasy(int.tryParse(map['rest_easy']!) ?? 30);
