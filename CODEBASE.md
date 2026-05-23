@@ -1,6 +1,6 @@
 # ApexPush – Codebase-Dokumentation
 
-> Zuletzt aktualisiert: 2026-05-21  
+> Zuletzt aktualisiert: 2026-05-23  
 > Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
@@ -49,21 +49,22 @@ apex_push/
 │   │   ├── training_data.dart                 # 72-Programm-Matrix, Navigation, Empfehlung
 │   │   └── rep_detail.dart                    # Per-Wiederholung-Sensordaten
 │   ├── data/
-│   │   ├── database_helper.dart               # SQLite Singleton (Schema v5)
-│   │   ├── sensor_service.dart                # Näherung + Beschleunigung + Rep-Callback
+│   │   ├── database_helper.dart               # SQLite Singleton (Schema v6)
+│   │   ├── sensor_service.dart                # Näherung + Beschleunigung + Auto-Polarität
 │   │   ├── csv_service.dart                   # Legacy CSV-Export
 │   │   ├── backup_service.dart                # .apxbak ZIP Export/Import mit Prüfsummen
 │   │   └── puud_import_service.dart           # Import aus originaler Push-Ups-App
 │   ├── logic/
-│   │   ├── workout_provider.dart              # Zentrales State-Management
+│   │   ├── workout_provider.dart              # Zentrales State-Management (paginiert)
 │   │   ├── settings_provider.dart             # Einstellungen (Theme, Audio, Training)
 │   │   ├── audio_service.dart                 # Synthetisierte Töne (Singleton)
+│   │   ├── share_service.dart                 # RepaintBoundary → PNG → share_plus
 │   │   └── notification_service.dart          # Tägliche Erinnerungen (Local Notifications)
 │   └── ui/
 │       ├── dashboard_screen.dart              # Startbildschirm
 │       ├── level_picker_screen.dart           # 72-Einheiten-Auswahl
-│       ├── record_screen.dart                 # Monatsansicht mit Balkendiagramm
-│       ├── session_detail_screen.dart         # Session-Detailansicht (post-Training + historisch)
+│       ├── record_screen.dart                 # Monatsansicht (provider-watch + lazy-load)
+│       ├── session_detail_screen.dart         # Session-Detailansicht + Share-Funktion
 │       ├── settings_screen.dart               # Einstellungsscreen
 │       ├── notification_screen.dart           # Benachrichtigungseinstellungen
 │       ├── about_screen.dart                  # App-Info
@@ -71,7 +72,8 @@ apex_push/
 │       │   └── workout_screen.dart            # Trainingsbildschirm (satzbasiert + frei)
 │       └── widgets/
 │           ├── workout_stat_card.dart         # Verlaufskarte
-│           └── monthly_combo_chart.dart       # fl_chart Balkendiagramm
+│           ├── monthly_combo_chart.dart       # fl_chart Balkendiagramm
+│           └── share_card.dart               # Branded Share-Karte (dark, theme-unabhängig)
 ├── test/
 │   ├── widget_test.dart                       # Sanity-Checks (reine Dart, kein SQLite)
 │   └── training_data_test.dart                # 14 Unit-Tests für TrainingData
@@ -173,22 +175,30 @@ Per-Wiederholung-Sensordaten – wird bei jeder Wdh. erfasst und in der Tabelle 
 
 **`DatabaseHelper`** (`lib/data/database_helper.dart`)
 
-- Singleton, SQLite via `sqflite`, Schema **Version 5**
+- Singleton, SQLite via `sqflite`, Schema **Version 6**
 - Zwei Tabellen: `workouts` (10 Spalten), `rep_details` (8 Spalten + FK)
-- Migrations: v1→2 (isFreeTraining, levelId, difficulty), v2→3 (rep_details Tabelle), v3→4 (proximity_val), v4→5 (set_index)
-- Schlüsselmethoden: `createWorkout()`, `readAllWorkouts()`, `batchInsert()`, `insertRepDetails()`, `insertRepDetailsBatch()`, `importPuudRecords()`, `getRepDetailsForWorkout()`, `getAllRepDetails()`, `deleteAllWorkouts()`
+- Migrations: v1→2 (isFreeTraining, levelId, difficulty), v2→3 (rep_details Tabelle), v3→4 (proximity_val), v4→5 (set_index), v5→6 (Index `idx_workouts_date`)
+- **Paginierung**: `readAllWorkouts({int limit = 500, int offset = 0})` — lädt seitenweise, neueste zuerst
+- **SQL-Aggregate** (immer über alle Einträge, unabhängig von geladener Seite):
+  - `getWorkoutCount()` → Gesamtzahl Workouts
+  - `getTotalReps()` → `SUM(count)`
+  - `getBestDayReps()` → `MAX` täglicher Summen
+  - `getAverageDailyReps()` → `AVG` täglicher Summen
+- Weitere Methoden: `createWorkout()`, `batchInsert()`, `insertRepDetails()`, `insertRepDetailsBatch()`, `importPuudRecords()`, `getRepDetailsForWorkout()`, `getAllRepDetails()`, `deleteAllWorkouts()`
 - `importPuudRecords()`: nimmt `List<({Workout workout, List<RepDetail> repDetails})>`, führt einen einzelnen SQLite-Transaction-Block aus
 
 **`SensorService`** (`lib/data/sensor_service.dart`)
 
 ```
 Zustandsautomat:
-  FAR  ──(event > 0)──▶  NEAR  → proximityRepCallback()  → _wasNear = true
-  NEAR ──(event == 0)──▶  FAR   → bereit für nächste Wdh. → _wasNear = false
+  FAR  ──(event > 0*)──▶  NEAR  → proximityRepCallback()  → _wasNear = true
+  NEAR ──(event == 0*)──▶  FAR   → bereit für nächste Wdh. → _wasNear = false
+  * bei invertierten Geräten umgekehrt (0 = NEAR) – wird automatisch erkannt
 ```
 
 - `proximityRepCallback` (öffentliches Feld): wird von `WorkoutProvider.startWorkout()` gesetzt
 - Callback feuert auf **FAR→NEAR-Übergang** (vor physischem Berühren)
+- **Auto-Polarity-Erkennung**: beim ersten Sensor-Event im Ruhezustand wird `_invertProximity` gesetzt — Geräte, die `0 = NEAR` melden, werden automatisch korrekt behandelt
 - Beschleunigungsmesser (`userAccelerometerEventStream`) erfasst laufend den Peakwert für `verifyPushUp()`
 - `verifyPushUp()` gibt `({bool verified, double peakG, bool isNear, double proximityRaw})` zurück; setzt 200 ms Cooldown zur Vermeidung von Tap-Vibrations-Doppelzählung
 - Standard-`impactThreshold`: **6.0 m/s²** (gravity-removed); Presets: High=3.0, Medium=6.0, Low=12.0
@@ -223,14 +233,22 @@ Legacy-Export (nur `workouts`, kein rep_details) via `share_plus`. Für vollstä
 
 Zentraler ChangeNotifier. Wichtige Zustände:
 
-| Feld                     | Typ              | Beschreibung                                 |
-|--------------------------|------------------|----------------------------------------------|
-| `_currentSessionCount`   | `int`            | Gesamtzähler der laufenden Session           |
-| `_sessionSplits`         | `List<int>`      | Rep-Anzahl pro abgeschlossenem Satz          |
-| `_repBuffer`             | `List<RepDetail>`| Per-Rep-Sensordaten bis zum Speichern        |
-| `_lastProximityRepTime`  | `DateTime?`      | Debounce-Zeitstempel für Tap-Fallback        |
-| `_activeProgram`         | `ActiveProgram`  | Aktuelle Einheit + Schwierigkeit             |
-| `_history`               | `List<Workout>`  | Geladene Datenbank-Historie                  |
+| Feld                     | Typ              | Beschreibung                                         |
+|--------------------------|------------------|------------------------------------------------------|
+| `_currentSessionCount`   | `int`            | Gesamtzähler der laufenden Session                   |
+| `_sessionSplits`         | `List<int>`      | Rep-Anzahl pro abgeschlossenem Satz                  |
+| `_repBuffer`             | `List<RepDetail>`| Per-Rep-Sensordaten bis zum Speichern                |
+| `_lastProximityRepTime`  | `DateTime?`      | Debounce-Zeitstempel für Tap-Fallback                |
+| `_activeProgram`         | `ActiveProgram`  | Aktuelle Einheit + Schwierigkeit                     |
+| `_history`               | `List<Workout>`  | Geladene Seite(n) der Datenbank-Historie             |
+| `_hasMoreHistory`        | `bool`           | True wenn weitere ältere Einträge in der DB vorhanden|
+| `_totalReps`             | `int`            | SQL-Aggregat: Summe aller Wiederholungen             |
+| `_bestDayReps`           | `int`            | SQL-Aggregat: Maximum einer täglichen Summe          |
+| `_avgDailyReps`          | `double`         | SQL-Aggregat: Durchschnitt täglicher Summen          |
+
+**Stats** (`totalCount`, `bestDayCount`, `averageDailyCount`) werden via SQL-Aggregat berechnet — immer korrekt, unabhängig davon wie viele Seiten geladen sind.
+
+**Paginierung**: `loadHistoryFromDb()` lädt die erste Seite (500 Einträge) und alle Stats parallel; `loadMoreHistory()` hängt die nächste Seite an wenn `hasMoreHistory == true`.
 
 Zählpfade:
 - **Näherungssensor** (`_onProximityRep`): setzt `_lastProximityRepTime`, ruft `_countRep()`
@@ -265,6 +283,13 @@ Singleton mit Pre-loaded-Audio-Pool für minimale Latenz:
 
 Töne werden zur Laufzeit als WAV-Bytes synthetisiert (kein Asset nötig). Drei `AudioPlayer` im Round-Robin für überlappende Rep-Ticks. Android-spezifisch: `AndroidAudioFocus.gainTransientMayDuck` für geringe Latenz.
 
+**`ShareService`** (`lib/logic/share_service.dart`)
+
+Statische Hilfsklasse zum Teilen eines Workout-Bildes:
+1. `captureAndShare(GlobalKey repaintKey)` — rendert den an `repaintKey` gebundenen `RepaintBoundary` mit 3× Pixelratio
+2. Speichert als PNG in `getTemporaryDirectory()`
+3. Öffnet System-Share-Dialog via `SharePlus.instance.share(ShareParams(files: [XFile(path)]))`
+
 **`NotificationService`** (`lib/logic/notification_service.dart`)
 
 Täglich wiederkehrende Erinnerung via `flutter_local_notifications` + `timezone`. Wird in `main.dart` initialisiert.
@@ -295,6 +320,8 @@ Täglich wiederkehrende Erinnerung via `flutter_local_notifications` + `timezone
 
 **`RecordScreen`**
 - Monats-Navigation: ◄ / ► Buttons + horizontales Wischen (Swipe)
+- Liest History via `context.watch<WorkoutProvider>().history` (kein Parameter mehr)
+- Ruft `provider.loadMoreHistory()` auf, wenn der Nutzer in einen Monat navigiert der älter als die ältesten geladenen Daten ist
 - Tabs: Liegestütze | Kalorien (× 0,5 kcal/Wdh.)
 - `MonthlyComboChart`: 31 Slots (feste Breite), Balken pro Trainingstag, Farbe primär/gedimmt/transparent
 - Tap auf Balken → SessionDetailScreen; mehrere Sessions am Tag → Bottom-Sheet-Picker
@@ -302,8 +329,14 @@ Täglich wiederkehrende Erinnerung via `flutter_local_notifications` + `timezone
 **`SessionDetailScreen`**
 - Summary-Karte: Datum, Level, Gesamtreps, Dauer, Kalorien
 - Satztabelle (wenn `splits` vorhanden): Ziel vs. Erreicht, Pass/Fail-Icon
+- **Share-Button** (AppBar-Icon): öffnet Bottom Sheet mit `ShareCard`-Vorschau; Capture via `ShareService.captureAndShare()` erfolgt **vor** dem Schließen des Sheets (Widget muss im Tree sein)
 - Post-Training: mit Splits (direkt nach Workout)
 - Historisch: ohne Splits (aus RecordScreen geöffnet)
+
+**`ShareCard`** (`lib/ui/widgets/share_card.dart`)
+- Branded dark Card (360 px breit, fester Hintergrund `#0E0E1A`/`#1A1A2E`)
+- Inhalt: App-Logo + Name, Datum, große Wiederholungszahl, Push-Up-Label, Level, Dauer-Chip, Kalorien-Chip
+- Design ist **theme-unabhängig** — sieht im hellen und dunklen App-Theme immer gleich aus
 
 **`SettingsScreen`** / **`NotificationScreen`** / **`AboutScreen`**
 - Theme, Sprache (DE/EN)
@@ -355,7 +388,7 @@ DashboardScreen
 
 ## 6. Datenbankschema
 
-**Schema-Version: 5**
+**Schema-Version: 6**
 
 ```sql
 CREATE TABLE workouts (
@@ -371,6 +404,8 @@ CREATE TABLE workouts (
     difficulty      TEXT                     -- "Easy"/"Normal"/"Hard", NULL bei freiem Training
 );
 
+CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(date);
+
 CREATE TABLE rep_details (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     workout_id    INTEGER NOT NULL,
@@ -384,7 +419,7 @@ CREATE TABLE rep_details (
 );
 ```
 
-Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficulty) → v3 (rep_details) → v4 (proximity_val) → v5 (set_index)
+Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficulty) → v3 (rep_details) → v4 (proximity_val) → v5 (set_index) → v6 (Index `idx_workouts_date`)
 
 ---
 
@@ -403,7 +438,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | `crypto`                     | SHA-256 Prüfsummen im Backup                     |
 | `csv`                        | CSV-Parsing und -Generierung                     |
 | `file_picker ^11.0.2`        | Dateiauswahl (Import) + SAF Save (Export)        |
-| `share_plus`                 | System-Share für CSV-Export                      |
+| `share_plus`                 | System-Share für CSV-Export und Workout-Bilder   |
 | `path_provider`              | Temp-Verzeichnis                                 |
 | `path`                       | Pfad-Utilities für SQLite                        |
 | `flutter_local_notifications`| Tägliche Erinnerungen                            |
@@ -417,20 +452,21 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 
 ## 8. Offene Punkte & bekannte Bugs
 
-### Feature-Lücken (noch nicht implementiert)
+### Feature-Lücken
 
-| # | Feature                         | Details                                                                      |
-|---|---------------------------------|------------------------------------------------------------------------------|
-| F1 | Bewegungsanalyse-Graph          | `rep_details` werden erfasst, aber SessionDetailScreen zeigt keinen Graph    |
-| F2 | Practice-Flow mit Empfehlung    | `TrainingData.recommendUnit()` existiert, aber kein UI-Flow nach freiem Training |
-| F3 | Wochenübersicht                 | Post-Training-Flow endet nach SessionDetailScreen, keine Wochenübersicht     |
-| F4 | Strava-Integration              | In REQUIREMENTS.md §10 spezifiziert, noch nicht begonnen                     |
+| # | Feature                         | Status | Details                                                                      |
+|---|---------------------------------|--------|------------------------------------------------------------------------------|
+| F1 | Bewegungsanalyse-Graph         | ✅ | SessionDetailScreen zeigt Sensor-Chart (peakG + proximity über Zeit)         |
+| F2 | Practice-Flow mit Empfehlung   | ✅ | Level-Empfehlung nach freiem Training implementiert                          |
+| F3 | Wochenübersicht                | 🔄 | Mo–So-Ansicht im Dashboard vorhanden; ggf. Erweiterung (Streak, Vorwoche)   |
+| F4 | Share-Feature (Phase 1)        | ✅ | Share-Karte via RepaintBoundary → PNG → share_plus in SessionDetailScreen    |
+| F4 | Strava-Integration (Phase 2)   | ⏳ | OAuth2 + Strava API — noch nicht begonnen                                    |
 
 ### Bekannte Bugs / Verbesserungsbedarf
 
-| # | Problem                               | Details                                                                   |
-|---|---------------------------------------|---------------------------------------------------------------------------|
-| B1 | Keine Paginierung der Verlaufsliste  | Alle Workouts werden bei App-Start geladen (kein Impact unter ~2000 Einträgen) |
-| B2 | Kein DB-Index auf `date`             | Queries für große Datenmengen werden langsamer                             |
-| B3 | RecordScreen ohne Line-Overlay       | LineChart wurde entfernt (Ausrichtungsproblem), nur BarChart vorhanden    |
-| B4 | Proximity-Invertierung geräteabhängig| `event > 0 = near` gilt für die meisten Android-Geräte, nicht alle       |
+| # | Problem                               | Status | Details                                                                   |
+|---|---------------------------------------|--------|---------------------------------------------------------------------------|
+| B1 | Keine Paginierung der Verlaufsliste  | ✅ | Paginierung (500er Seiten) + SQL-Aggregat-Stats implementiert              |
+| B2 | Kein DB-Index auf `date`             | ✅ | Index `idx_workouts_date` in Schema v6 (onCreate + Migration)              |
+| B3 | RecordScreen ohne Line-Overlay       | ➖ | Bewusst nicht angegangen (Aufwand > Nutzen)                               |
+| B4 | Proximity-Invertierung geräteabhängig| ✅ | Auto-Polarity-Erkennung beim ersten Sensor-Event in `SensorService.init()` |
