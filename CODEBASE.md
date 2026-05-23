@@ -1,6 +1,6 @@
 # ApexPush – Codebase-Dokumentation
 
-> Zuletzt aktualisiert: 2026-05-23 (F3)  
+> Zuletzt aktualisiert: 2026-05-23 (Wakelock, Audio-Zuverlässigkeit, Meilenstein-Ton, Countdown)  
 > Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
@@ -274,14 +274,17 @@ Persistiert alle Benutzereinstellungen in SharedPreferences:
 
 Singleton mit Pre-loaded-Audio-Pool für minimale Latenz:
 
-| Methode            | Ton        | Verwendung                                   |
-|--------------------|------------|----------------------------------------------|
-| `playRepTick()`    | 880 Hz, 60 ms  | Jede Wiederholung                        |
-| `playCountdown()`  | 660 Hz, 110 ms | 3 / 2 / 1 s vor Pause-Ende              |
-| `playRestEnd()`    | 1100 Hz, 300 ms| Pause abgelaufen, nächster Satz           |
-| `playTargetReached()` | 1320 Hz, 200 ms | Satzziel erstmals erreicht          |
+| Methode               | Ton             | Verwendung                                        |
+|-----------------------|-----------------|---------------------------------------------------|
+| `playRepTick()`       | 880 Hz, 60 ms   | Jede Wiederholung (außer Meilensteine)            |
+| `playMilestone()`     | 1100 Hz, 150 ms | Jede 10. Wiederholung (10, 20, 30 …)             |
+| `playCountdown()`     | 660 Hz, 110 ms  | 3 / 2 / 1 s vor Pause-Ende                       |
+| `playRestEnd()`       | 1100 Hz, 300 ms | Pause abgelaufen, nächster Satz                   |
+| `playTargetReached()` | 1320 Hz, 200 ms | Satzziel erstmals erreicht                        |
 
-Töne werden zur Laufzeit als WAV-Bytes synthetisiert (kein Asset nötig). Drei `AudioPlayer` im Round-Robin für überlappende Rep-Ticks. Android-spezifisch: `AndroidAudioFocus.gainTransientMayDuck` für geringe Latenz.
+Töne werden zur Laufzeit als WAV-Bytes synthetisiert (kein Asset nötig); Bytes werden als Instanzfelder gespeichert.  
+Alle Play-Methoden nutzen `p.play(BytesSource(_bytes))` (kein `seek+resume`) — zuverlässig aus jedem Player-State.  
+**5** `AudioPlayer` im Round-Robin für überlappende Rep-Ticks. Android-spezifisch: `AndroidAudioFocus.gainTransientMayDuck` für geringe Latenz.
 
 **`ShareService`** (`lib/logic/share_service.dart`)
 
@@ -306,11 +309,12 @@ Täglich wiederkehrende Erinnerung via `flutter_local_notifications` + `timezone
 - AppBar: Einstellungen-Icon; in Settings: CSV-Export, .apxbak-Export/-Import, .puud-Import, Daten löschen
 
 **`WorkoutScreen`**
+- **Wakelock**: `WakelockPlus.enable()` in `initState` (post-frame), `WakelockPlus.disable()` in `dispose()` — Display bleibt während des gesamten Trainings an
 - **Freies Training**: schwarzer Vollbild-Tap-Zähler, FINISH-Button
 - **Strukturiertes Training**:
-  - Aktiver Satz: `Satz N von 5 – Ziel X Wdh.`, großer Zähler (grün bei Zielerreichung), SATZ/TRAINING-ABSCHLIESSEN-Button, Abbrechen-Link
+  - Aktiver Satz: `Satz N von 5 – Ziel X Wdh.`, großer Hochzähl-Zähler (grün bei Zielerreichung), darunter kleiner muted Runterzähl-Zähler (`target − setCount`, nur solange Ziel noch nicht erreicht), SATZ/TRAINING-ABSCHLIESSEN-Button, Abbrechen-Link
   - Pause: Countdown (orange bei ≤ 3 s), Vorschau nächster Satz, PAUSE ÜBERSPRINGEN
-  - Audio: Rep-Tick, Countdown 3-2-1, Pause-Ende, Ziel-Ton
+  - Audio: Meilenstein-Ton bei jeder 10. Wdh., sonst Rep-Tick; Countdown 3-2-1, Pause-Ende, Ziel-Ton
 - Post-Training-Flow: SessionDetailScreen → Schwierigkeitsfeedback-Dialog → ggf. Level-Änderung → Dashboard
 
 **`LevelPickerScreen`**
@@ -448,6 +452,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | `flutter_native_splash`      | Splash Screen                                    |
 | `package_info_plus`          | App-Version im About-Screen                      |
 | `url_launcher`               | Links im About-Screen                            |
+| `wakelock_plus`              | Display dauerhaft an während des Trainings       |
 
 ---
 

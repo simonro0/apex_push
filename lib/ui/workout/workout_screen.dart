@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../logic/audio_service.dart';
@@ -49,12 +50,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       context.read<WorkoutProvider>().startWorkout(
             sensorThreshold: settings.sensorThreshold,
           );
+      WakelockPlus.enable();
     });
   }
 
   @override
   void dispose() {
     _restTimer?.cancel();
+    WakelockPlus.disable();
     super.dispose();
   }
 
@@ -81,7 +84,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final settings = context.read<SettingsProvider>();
     if (settings.audioEnabled) {
       if (settings.repSoundEnabled) {
-        AudioService.instance.playRepTick();
+        // Every 10th rep gets a more intense milestone tone.
+        final count = provider.currentCount;
+        if (count > 0 && count % 10 == 0) {
+          AudioService.instance.playMilestone();
+        } else {
+          AudioService.instance.playRepTick();
+        }
       }
       if (!widget.isFreeTraining && !_targetReachedPlayed) {
         final setCount = _setCountFrom(provider);
@@ -357,6 +366,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                if (!isBurnout && target > 0 && setCount < target)
+                  Text(
+                    '${target - setCount}',
+                    style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
               ],
             ),
           ),

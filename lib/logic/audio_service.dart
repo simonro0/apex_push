@@ -5,9 +5,11 @@ import 'package:flutter/foundation.dart';
 
 /// Singleton audio service.
 ///
-/// All players are pre-loaded once in [init] so that every play call
-/// only does seek(0) + resume() — no pipeline re-initialisation, minimal
-/// latency. Volume changes are pushed to every player immediately.
+/// All WAV bytes are synthesised once in [init] and stored as instance
+/// fields.  Every play call uses [AudioPlayer.play] with a fresh
+/// [BytesSource] so the player works reliably from any state (stopped,
+/// paused, or completed) without a separate seek step.  The round-robin
+/// rep pool has 5 slots to handle rapid multi-tap sequences.
 class AudioService {
   AudioService._();
   static final AudioService instance = AudioService._();
@@ -25,26 +27,36 @@ class AudioService {
     _countdownPlayer.setVolume(v);
     _restEndPlayer.setVolume(v);
     _targetPlayer.setVolume(v);
+    _milestonePlayer.setVolume(v);
   }
 
-  // Three players in round-robin so rapid rep ticks can overlap.
+  // Five players in round-robin so rapid rep ticks can overlap.
   final List<AudioPlayer> _repPool = [];
   int _repIdx = 0;
 
-  // One pre-loaded player per distinct event sound.
+  // One player per distinct event sound.
   late final AudioPlayer _countdownPlayer;
   late final AudioPlayer _restEndPlayer;
   late final AudioPlayer _targetPlayer;
+  late final AudioPlayer _milestonePlayer;
+
+  // Pre-synthesised bytes kept as instance fields for fast BytesSource play.
+  late final Uint8List _repBytes;
+  late final Uint8List _countdownBytes;
+  late final Uint8List _restEndBytes;
+  late final Uint8List _targetBytes;
+  late final Uint8List _milestoneBytes;
 
   // ── Init / dispose ─────────────────────────────────────────────────────────
 
   Future<void> init() async {
     if (_initialized) return;
 
-    final repBytes       = _wav(hz: 880,  ms: 60,  vol: 0.45);
-    final countdownBytes = _wav(hz: 660,  ms: 110, vol: 0.75);
-    final restEndBytes   = _wav(hz: 1100, ms: 300, vol: 0.85);
-    final targetBytes    = _wav(hz: 1320, ms: 200, vol: 0.80);
+    _repBytes       = _wav(hz: 880,  ms: 60,  vol: 0.45);
+    _countdownBytes = _wav(hz: 660,  ms: 110, vol: 0.75);
+    _restEndBytes   = _wav(hz: 1100, ms: 300, vol: 0.85);
+    _targetBytes    = _wav(hz: 1320, ms: 200, vol: 0.80);
+    _milestoneBytes = _wav(hz: 1100, ms: 150, vol: 0.90);
 
     // On Android, request a transient audio focus that ducks other audio
     // rather than taking full focus.  This eliminates the audio focus
@@ -60,12 +72,11 @@ class AudioService {
           )
         : AudioContext();
 
-    // Pre-load rep pool.
-    for (var i = 0; i < 3; i++) {
+    // Pre-load rep pool (5 slots for rapid tap sequences).
+    for (var i = 0; i < 5; i++) {
       final p = AudioPlayer();
       await p.setAudioContext(audioCtx);
       await p.setReleaseMode(ReleaseMode.stop);
-      await p.setSource(BytesSource(repBytes));
       await p.setVolume(_volume);
       _repPool.add(p);
     }
@@ -74,20 +85,22 @@ class AudioService {
     _countdownPlayer = AudioPlayer();
     await _countdownPlayer.setAudioContext(audioCtx);
     await _countdownPlayer.setReleaseMode(ReleaseMode.stop);
-    await _countdownPlayer.setSource(BytesSource(countdownBytes));
     await _countdownPlayer.setVolume(_volume);
 
     _restEndPlayer = AudioPlayer();
     await _restEndPlayer.setAudioContext(audioCtx);
     await _restEndPlayer.setReleaseMode(ReleaseMode.stop);
-    await _restEndPlayer.setSource(BytesSource(restEndBytes));
     await _restEndPlayer.setVolume(_volume);
 
     _targetPlayer = AudioPlayer();
     await _targetPlayer.setAudioContext(audioCtx);
     await _targetPlayer.setReleaseMode(ReleaseMode.stop);
-    await _targetPlayer.setSource(BytesSource(targetBytes));
     await _targetPlayer.setVolume(_volume);
+
+    _milestonePlayer = AudioPlayer();
+    await _milestonePlayer.setAudioContext(audioCtx);
+    await _milestonePlayer.setReleaseMode(ReleaseMode.stop);
+    await _milestonePlayer.setVolume(_volume);
 
     _initialized = true;
   }
@@ -100,6 +113,7 @@ class AudioService {
       _countdownPlayer.dispose();
       _restEndPlayer.dispose();
       _targetPlayer.dispose();
+      _milestonePlayer.dispose();
     }
   }
 
@@ -110,29 +124,31 @@ class AudioService {
     if (!_initialized) return;
     final p = _repPool[_repIdx];
     _repIdx = (_repIdx + 1) % _repPool.length;
-    p.seek(Duration.zero);
-    p.resume();
+    p.play(BytesSource(_repBytes));
+  }
+
+  /// Intense tone played on every 10th rep (10, 20, 30, …).
+  void playMilestone() {
+    if (!_initialized) return;
+    _milestonePlayer.play(BytesSource(_milestoneBytes));
   }
 
   /// Played at 3 / 2 / 1 seconds remaining in rest.
   void playCountdown() {
     if (!_initialized) return;
-    _countdownPlayer.seek(Duration.zero);
-    _countdownPlayer.resume();
+    _countdownPlayer.play(BytesSource(_countdownBytes));
   }
 
   /// Played when rest ends and the next set begins.
   void playRestEnd() {
     if (!_initialized) return;
-    _restEndPlayer.seek(Duration.zero);
-    _restEndPlayer.resume();
+    _restEndPlayer.play(BytesSource(_restEndBytes));
   }
 
   /// Played once when the rep count first reaches the set target.
   void playTargetReached() {
     if (!_initialized) return;
-    _targetPlayer.seek(Duration.zero);
-    _targetPlayer.resume();
+    _targetPlayer.play(BytesSource(_targetBytes));
   }
 
   // ── WAV synthesis ──────────────────────────────────────────────────────────
