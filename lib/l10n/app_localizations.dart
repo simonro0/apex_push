@@ -154,8 +154,11 @@ class AppLocalizations {
       'weekday_5': 'Sa',
       'weekday_6': 'So',
       // ── Weekly overview ───────────────────────────────────────────────────
-      'week_overview': 'Diese Woche',
-      'week_total':    '{n} Wdh.',
+      'week_overview':   'Diese Woche',
+      'week_total':      '{n} Wdh.',
+      'streak_days':     '{n} Tage Streak',
+      'reps_per_min':    'Wdh./min',
+      'vs_prev_week':    'vs. Vorwoche',
       // ── Burnout set ───────────────────────────────────────────────────────
       'burnout':      'BURNOUT',
       'burnout_chip': 'max',
@@ -331,8 +334,11 @@ class AppLocalizations {
       'weekday_5': 'Sa',
       'weekday_6': 'Su',
       // ── Weekly overview ───────────────────────────────────────────────────
-      'week_overview': 'This Week',
-      'week_total':    '{n} reps',
+      'week_overview':   'This Week',
+      'week_total':      '{n} reps',
+      'streak_days':     '{n}-day streak',
+      'reps_per_min':    'reps/min',
+      'vs_prev_week':    'vs. prev. week',
       // ── Burnout set ───────────────────────────────────────────────────────
       'burnout':      'BURNOUT',
       'burnout_chip': 'max',

@@ -371,11 +371,81 @@ class _WeeklyCard extends StatelessWidget {
 
   const _WeeklyCard({required this.history, required this.baseDate});
 
+  // ── Streak (1-day-gap tolerance) ──────────────────────────────────────────
+
+  static int _streak(List<Workout> history, DateTime today) {
+    if (history.isEmpty) return 0;
+
+    // Unique training days, newest first.
+    final days = history
+        .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
+        .toSet()
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    // Streak is "active" only if the last session is ≤ 2 calendar days ago
+    // (today or yesterday with 1 rest-day tolerance).
+    if (today.difference(days.first).inDays > 2) return 0;
+
+    int count = 1;
+    for (int i = 1; i < days.length; i++) {
+      // Gap between consecutive training days must be ≤ 2 (at most 1 rest day).
+      if (days[i - 1].difference(days[i]).inDays <= 2) {
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }
+
+  // ── Weekly volume (total reps) ────────────────────────────────────────────
+
+  static int _weekVolume(List<Workout> history, DateTime monday) =>
+      history.fold(0, (s, w) {
+        final d    = DateTime(w.date.year, w.date.month, w.date.day);
+        final diff = d.difference(monday).inDays;
+        return (diff >= 0 && diff < 7) ? s + w.count : s;
+      });
+
+  // ── Weekly tempo: avg reps/min per session (durationSeconds > 0 only) ────
+
+  static double _weekTempo(List<Workout> history, DateTime monday) {
+    final sessions = history.where((w) {
+      if (w.durationSeconds == 0) return false;
+      final d    = DateTime(w.date.year, w.date.month, w.date.day);
+      final diff = d.difference(monday).inDays;
+      return diff >= 0 && diff < 7;
+    }).toList();
+    if (sessions.isEmpty) return 0.0;
+    return sessions.fold(0.0, (s, w) => s + w.count / (w.durationSeconds / 60.0))
+        / sessions.length;
+  }
+
+  // ── Delta label: "↑ 15 %" / "↓ 5 %" / "" ────────────────────────────────
+
+  static ({String text, bool positive}) _delta(double current, double prev) {
+    if (prev == 0 || current == 0) return (text: '', positive: true);
+    final pct = ((current - prev) / prev * 100).round();
+    if (pct == 0) return (text: '= 0 %', positive: true);
+    return (
+      text:     '${pct > 0 ? '↑' : '↓'} ${pct.abs()} %',
+      positive: pct > 0,
+    );
+  }
+
+  static String _compact(int n) =>
+      n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : '$n';
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final today  = DateTime(baseDate.year, baseDate.month, baseDate.day);
-    final monday = today.subtract(Duration(days: today.weekday - 1));
+    final today      = DateTime(baseDate.year, baseDate.month, baseDate.day);
+    final monday     = today.subtract(Duration(days: today.weekday - 1));
+    final prevMonday = monday.subtract(const Duration(days: 7));
 
+    // Daily reps for circle display.
     final daily = <int, int>{};
     for (final w in history) {
       final d    = DateTime(w.date.year, w.date.month, w.date.day);
@@ -384,10 +454,18 @@ class _WeeklyCard extends StatelessWidget {
         daily[diff] = (daily[diff] ?? 0) + w.count;
       }
     }
-    final weekTotal   = daily.values.fold(0, (s, v) => s + v);
+
     final todayOffset = today.difference(monday).inDays;
-    final primary     = Theme.of(context).colorScheme.primary;
-    final hintColor   = Theme.of(context).colorScheme.onSurfaceVariant;
+    final streak      = _streak(history, today);
+    final currVol     = _weekVolume(history, monday);
+    final prevVol     = _weekVolume(history, prevMonday);
+    final currTempo   = _weekTempo(history, monday);
+    final prevTempo   = _weekTempo(history, prevMonday);
+    final volDelta    = _delta(currVol.toDouble(), prevVol.toDouble());
+    final tempoDelta  = _delta(currTempo, prevTempo);
+
+    final primary   = Theme.of(context).colorScheme.primary;
+    final hintColor = Theme.of(context).colorScheme.onSurfaceVariant;
 
     return Card(
       child: Padding(
@@ -395,6 +473,7 @@ class _WeeklyCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Header ─────────────────────────────────────────────────────
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -404,23 +483,31 @@ class _WeeklyCard extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                 ),
-                Text(
-                  context.tp('week_total', {'n': '$weekTotal'}),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: primary,
-                        fontWeight: FontWeight.w600,
+                if (streak > 0)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('🔥', style: TextStyle(fontSize: 13)),
+                      const SizedBox(width: 3),
+                      Text(
+                        context.tp('streak_days', {'n': '$streak'}),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color:      primary,
+                              fontWeight: FontWeight.w600,
+                            ),
                       ),
-                ),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 12),
+            // ── Day circles ────────────────────────────────────────────────
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: List.generate(7, (i) {
                 final reps    = daily[i] ?? 0;
                 final trained = reps > 0;
                 final isToday = i == todayOffset;
-
                 return Column(
                   children: [
                     Text(
@@ -438,9 +525,7 @@ class _WeeklyCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: trained
                             ? primary.withValues(alpha: 0.85)
-                            : Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
+                            : Theme.of(context).colorScheme.surfaceContainerHighest,
                         shape: BoxShape.circle,
                         border: isToday
                             ? Border.all(color: primary, width: 2)
@@ -462,14 +547,84 @@ class _WeeklyCard extends StatelessWidget {
                 );
               }),
             ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+            // ── Volume row ─────────────────────────────────────────────────
+            _MetricRow(
+              icon:      Icons.bar_chart,
+              value:     context.tp('week_total', {'n': '$currVol'}),
+              delta:     volDelta.text,
+              deltaPos:  volDelta.positive,
+              subLabel:  context.t('vs_prev_week'),
+              hintColor: hintColor,
+              primary:   primary,
+            ),
+            const SizedBox(height: 6),
+            // ── Tempo row ──────────────────────────────────────────────────
+            if (currTempo > 0)
+              _MetricRow(
+                icon:      Icons.speed,
+                value:     '${currTempo.toStringAsFixed(1)} ${context.t('reps_per_min')}',
+                delta:     tempoDelta.text,
+                deltaPos:  tempoDelta.positive,
+                subLabel:  context.t('vs_prev_week'),
+                hintColor: hintColor,
+                primary:   primary,
+              ),
           ],
         ),
       ),
     );
   }
+}
 
-  static String _compact(int n) =>
-      n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : '$n';
+class _MetricRow extends StatelessWidget {
+  final IconData icon;
+  final String   value;
+  final String   delta;
+  final bool     deltaPos;
+  final String   subLabel;
+  final Color    hintColor;
+  final Color    primary;
+
+  const _MetricRow({
+    required this.icon,
+    required this.value,
+    required this.delta,
+    required this.deltaPos,
+    required this.subLabel,
+    required this.hintColor,
+    required this.primary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final deltaColor = delta.isEmpty
+        ? hintColor
+        : deltaPos ? Colors.green : Colors.orange;
+
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: hintColor),
+        const SizedBox(width: 6),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        const Spacer(),
+        if (delta.isNotEmpty) ...[
+          Text(
+            delta,
+            style: TextStyle(
+              fontSize:   12,
+              fontWeight: FontWeight.bold,
+              color:      deltaColor,
+            ),
+          ),
+          const SizedBox(width: 4),
+        ],
+        Text(subLabel, style: TextStyle(fontSize: 11, color: hintColor)),
+      ],
+    );
+  }
 }
 
 // ── Sensor chart section ──────────────────────────────────────────────────────
