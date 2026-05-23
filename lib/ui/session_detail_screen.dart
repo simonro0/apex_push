@@ -59,6 +59,11 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     final locale = ctx.read<SettingsProvider>().locale;
     final date   = AppLocalizations.formatDate(widget.workout.date, locale);
 
+    // Sub-label: "Freies Training" for free sessions, splits for structured.
+    final subLabel = widget.workout.isFreeTraining
+        ? AppLocalizations.translate('free_training_label', locale)
+        : (effectiveSplits.isEmpty ? null : effectiveSplits.join(' · '));
+
     showModalBottomSheet<void>(
       context: ctx,
       backgroundColor: const Color(0xFF0E0E1A),
@@ -87,7 +92,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                 child: ShareCard(
                   workout:       widget.workout,
                   formattedDate: date,
-                  splits:        effectiveSplits,
+                  subLabel:      subLabel,
                 ),
               ),
               const SizedBox(height: 20),

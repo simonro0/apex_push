@@ -5,17 +5,19 @@ import '../../models/workout.dart';
 /// Fixed-size workout summary card intended for screenshot sharing.
 /// Design is always dark/branded, independent of the app's current theme.
 class ShareCard extends StatelessWidget {
-  final Workout    workout;
-  final String     formattedDate;
-  /// Actual reps achieved per set (may be empty for free training or
-  /// sessions without split data).
-  final List<int>  splits;
+  final Workout workout;
+  final String  formattedDate;
+  /// Sub-label shown below the rep count.
+  /// • Structured training: actual per-set splits, e.g. "12 · 10 · 8 · 8 · 8"
+  /// • Free training: localised "Freies Training" / "Free Training"
+  /// • null → nothing shown
+  final String? subLabel;
 
   const ShareCard({
     super.key,
     required this.workout,
     required this.formattedDate,
-    this.splits = const [],
+    this.subLabel,
   });
 
   static const _purple    = Color(0xFF7C6DFF);
@@ -28,7 +30,6 @@ class ShareCard extends StatelessWidget {
     final mins        = workout.durationSeconds ~/ 60;
     final secs        = workout.durationSeconds % 60;
     final durationStr = '${mins}m ${secs.toString().padLeft(2, '0')}s';
-    final setsStr     = splits.isEmpty ? null : splits.join(' · ');
 
     return Container(
       width:   360,
@@ -95,11 +96,11 @@ class ShareCard extends StatelessWidget {
               ),
             ],
           ),
-          // ── Sets breakdown (replaces level label) ─────────────────────────
-          if (setsStr != null) ...[
+          // ── Sub-label (sets or free-training label) ───────────────────────
+          if (subLabel != null) ...[
             const SizedBox(height: 4),
             Text(
-              setsStr,
+              subLabel!,
               style: const TextStyle(
                 color:       Colors.white38,
                 fontSize:    13,
