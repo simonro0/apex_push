@@ -5,6 +5,8 @@ import '../data/backup_service.dart';
 import '../l10n/app_localizations.dart';
 import '../logic/audio_service.dart';
 import '../logic/settings_provider.dart';
+import '../logic/strava_config.dart';
+import '../logic/strava_service.dart';
 import '../logic/workout_provider.dart';
 import 'about_screen.dart';
 
@@ -140,6 +142,11 @@ class SettingsScreen extends StatelessWidget {
             titleColor: Colors.red,
             onTap: () => _confirmClearAll(context),
           ),
+          const Divider(height: 1),
+
+          // ── Integrations ──────────────────────────────────────────────────
+          _SectionHeader(context.t('integrations')),
+          _StravaTile(),
           const Divider(height: 1),
 
           // ── About ─────────────────────────────────────────────────────────
@@ -535,6 +542,121 @@ class _SliderTile extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+// ── Strava tile ───────────────────────────────────────────────────────────────
+
+/// Shows Strava connection state and lets the user connect / disconnect.
+/// Uses a [FutureBuilder] so the tile re-checks the stored token on each build.
+class _StravaTile extends StatefulWidget {
+  @override
+  State<_StravaTile> createState() => _StravaTileState();
+}
+
+class _StravaTileState extends State<_StravaTile> {
+  bool _loading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!StravaConfig.isConfigured) {
+      return ListTile(
+        leading: const Icon(Icons.directions_run),
+        title: Text(context.t('strava')),
+        subtitle: Text(
+          context.t('strava_not_configured'),
+          style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+        ),
+      );
+    }
+
+    return FutureBuilder<bool>(
+      future: StravaService.instance.isConnected,
+      builder: (ctx, snap) {
+        final connected = snap.data ?? false;
+
+        if (_loading) {
+          return ListTile(
+            leading: const Icon(Icons.directions_run),
+            title: Text(context.t('strava')),
+            subtitle: Text(context.t('strava_exporting')),
+            trailing: const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+
+        return ListTile(
+          leading: Icon(
+            Icons.directions_run,
+            color: connected
+                ? const Color(0xFFFC4C02) // Strava orange
+                : null,
+          ),
+          title: Text(context.t('strava')),
+          subtitle: Text(
+            connected
+                ? context.t('strava_connected')
+                : context.t('strava_not_connected'),
+            style: TextStyle(
+              color: connected
+                  ? const Color(0xFFFC4C02)
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          trailing: connected
+              ? TextButton(
+                  onPressed: _disconnect,
+                  child: Text(
+                    context.t('strava_disconnect'),
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                )
+              : const Icon(Icons.chevron_right),
+          onTap: connected ? null : _connect,
+        );
+      },
+    );
+  }
+
+  Future<void> _connect() async {
+    setState(() => _loading = true);
+    final ok = await StravaService.instance.connect();
+    if (!mounted) return;
+    setState(() => _loading = false);
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('strava_cancelled'))),
+      );
+    }
+    // FutureBuilder rebuilds automatically when setState is called.
+  }
+
+  Future<void> _disconnect() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        content: Text(context.tr('strava_disconnect_confirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.tr('cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              context.tr('strava_disconnect'),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await StravaService.instance.disconnect();
+    if (mounted) setState(() {});
   }
 }
 

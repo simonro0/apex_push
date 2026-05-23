@@ -29,6 +29,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Required by flutter_appauth: custom URI scheme for OAuth2 redirect.
+        // Must match StravaConfig.redirectScheme and the Strava app's callback domain.
+        manifestPlaceholders["appAuthRedirectScheme"] = "apexpush"
     }
 
     buildTypes {
