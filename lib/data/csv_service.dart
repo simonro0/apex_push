@@ -34,7 +34,7 @@ class CsvService {
   static Future<List<Workout>> importFromCsv() async {
     FilePickerResult? result;
     try {
-      result = await FilePicker.platform.pickFiles(
+      result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
       );
