@@ -195,6 +195,23 @@ class AppLocalizations {
       // ── Workout countdown ─────────────────────────────────────────────────
       'countdown_remaining': 'noch {n} Wdh.',
       'countdown_extra':     '{n} zusätzl. Wdh.',
+      // ── Strava ────────────────────────────────────────────────────────────
+      'integrations':             'Integrationen',
+      'strava':                   'Strava',
+      'strava_connected':         'Verbunden',
+      'strava_not_connected':     'Nicht verbunden',
+      'strava_connect':           'Mit Strava verbinden',
+      'strava_disconnect':        'Strava trennen',
+      'strava_disconnect_confirm':'Strava-Verbindung wirklich trennen?',
+      'strava_not_configured':    'Client-ID nicht konfiguriert – siehe strava_config.dart',
+      'strava_export':            'Auf Strava exportieren',
+      'strava_exporting':         'Wird exportiert…',
+      'strava_success':           'Auf Strava veröffentlicht',
+      'strava_view':              'ANSEHEN',
+      'strava_error_unauthorized':'Zugriff verweigert. Bitte erneut verbinden.',
+      'strava_error_network':     'Netzwerkfehler. Bitte prüfe deine Verbindung.',
+      'strava_error_generic':     'Fehler beim Exportieren ({code}).',
+      'strava_cancelled':         'Verbindung abgebrochen.',
     },
     'en': {
       // ── App / Dashboard ──────────────────────────────────────────────────
@@ -382,6 +399,23 @@ class AppLocalizations {
       // ── Workout countdown ─────────────────────────────────────────────────
       'countdown_remaining': '{n} left',
       'countdown_extra':     '{n} extra',
+      // ── Strava ────────────────────────────────────────────────────────────
+      'integrations':             'Integrations',
+      'strava':                   'Strava',
+      'strava_connected':         'Connected',
+      'strava_not_connected':     'Not connected',
+      'strava_connect':           'Connect to Strava',
+      'strava_disconnect':        'Disconnect Strava',
+      'strava_disconnect_confirm':'Really disconnect from Strava?',
+      'strava_not_configured':    'Client ID not configured – see strava_config.dart',
+      'strava_export':            'Export to Strava',
+      'strava_exporting':         'Exporting…',
+      'strava_success':           'Published on Strava',
+      'strava_view':              'VIEW',
+      'strava_error_unauthorized':'Access denied. Please reconnect.',
+      'strava_error_network':     'Network error. Please check your connection.',
+      'strava_error_generic':     'Export failed ({code}).',
+      'strava_cancelled':         'Connection cancelled.',
     },
   };
 

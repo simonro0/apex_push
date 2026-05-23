@@ -4,10 +4,14 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../data/database_helper.dart';
 import '../l10n/app_localizations.dart';
 import '../logic/settings_provider.dart';
 import '../logic/share_service.dart';
+import '../logic/strava_config.dart';
+import '../logic/strava_service.dart';
 import '../models/rep_detail.dart';
 import '../models/training_data.dart';
 import '../models/workout.dart';
@@ -70,29 +74,13 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (sheetCtx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-              24, 20, 24, 16 + MediaQuery.of(sheetCtx).padding.bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                ctx.t('share_workout'),
-                style: const TextStyle(
-                  color:      Colors.white,
-                  fontSize:   16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Card preview + RepaintBoundary for screenshot capture.
-              RepaintBoundary(
-                key: _shareCardKey,
-                child: ShareCard(
+      builder: (sheetCtx) => _ShareSheet(
                   workout:       widget.workout,
-                  formattedDate: date,
+        date:          date,
                   subLabel:      subLabel,
+        splits:        effectiveSplits,
+        locale:        locale,
+        shareCardKey:  _shareCardKey,
                 ),
               ),
               const SizedBox(height: 20),
@@ -119,8 +107,6 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
             ],
           ),
         );
-      },
-    );
   }
 
   Future<void> _loadRepDetails() async {
@@ -832,5 +818,187 @@ class _MiniLineChart extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+// ── Share bottom sheet ────────────────────────────────────────────────────────
+
+/// Bottom sheet with image-share and optional Strava export button.
+/// Extracted as a StatefulWidget so the Strava loading state is isolated.
+class _ShareSheet extends StatefulWidget {
+  final Workout    workout;
+  final String     date;
+  final String?    subLabel;
+  final List<int>  splits;
+  final String     locale;
+  final GlobalKey  shareCardKey;
+
+  const _ShareSheet({
+    required this.workout,
+    required this.date,
+    required this.subLabel,
+    required this.splits,
+    required this.locale,
+    required this.shareCardKey,
+  });
+
+  @override
+  State<_ShareSheet> createState() => _ShareSheetState();
+}
+
+class _ShareSheetState extends State<_ShareSheet> {
+  bool _stravaLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          24, 20, 24, 16 + MediaQuery.of(context).padding.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            context.t('share_workout'),
+            style: const TextStyle(
+              color:      Colors.white,
+              fontSize:   16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Card preview + RepaintBoundary for screenshot capture.
+          RepaintBoundary(
+            key: widget.shareCardKey,
+            child: ShareCard(
+              workout:       widget.workout,
+              formattedDate: widget.date,
+              subLabel:      widget.subLabel,
+            ),
+          ),
+          const SizedBox(height: 20),
+          // ── Image share button ───────────────────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7C6DFF),
+                foregroundColor: Colors.white,
+                padding:         const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              icon:    const Icon(Icons.share_outlined),
+              label:   Text(context.t('share_btn')),
+              onPressed: () async {
+                await ShareService.captureAndShare(widget.shareCardKey);
+                if (context.mounted) Navigator.pop(context);
+              },
+            ),
+          ),
+          // ── Strava export button (only when configured) ──────────────────
+          if (StravaConfig.isConfigured) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFFC4C02),
+                  side:    const BorderSide(color: Color(0xFFFC4C02)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape:   RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                icon:  _stravaLoading
+                    ? const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFFFC4C02),
+                        ),
+                      )
+                    : const Icon(Icons.directions_run),
+                label: Text(
+                  _stravaLoading
+                      ? context.t('strava_exporting')
+                      : context.t('strava_export'),
+                ),
+                onPressed: _stravaLoading ? null : _exportToStrava,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportToStrava() async {
+    setState(() => _stravaLoading = true);
+
+    // Check if connected; if not, trigger connect flow first.
+    final connected = await StravaService.instance.isConnected;
+    if (!connected) {
+      final ok = await StravaService.instance.connect();
+      if (!mounted) return;
+      if (!ok) {
+        setState(() => _stravaLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('strava_cancelled'))),
+        );
+        return;
+      }
+    }
+
+    final result = await StravaService.instance.exportActivity(
+      workout: widget.workout,
+      splits:  widget.splits,
+      locale:  widget.locale,
+    );
+
+    if (!mounted) return;
+    setState(() => _stravaLoading = false);
+    Navigator.pop(context); // close sheet before showing snackbar
+    if (!mounted) return;
+
+    switch (result) {
+      case StravaSuccess(:final activityUrl):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr('strava_success')),
+            action: SnackBarAction(
+              label: context.tr('strava_view'),
+              onPressed: () async {
+                try {
+                  await _launchUrl(Uri.parse(activityUrl));
+                } catch (_) {}
+              },
+            ),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      case StravaError(:final message):
+        final text = switch (message) {
+          'unauthorized'  => context.tr('strava_error_unauthorized'),
+          'network_error' => context.tr('strava_error_network'),
+          _               => context.tp('strava_error_generic', {'code': message}),
+        };
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:         Text(text),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      case StravaCancelled():
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('strava_cancelled'))),
+        );
+    }
+  }
+}
+
+// ── url_launcher helper ───────────────────────────────────────────────────────
+
+Future<void> _launchUrl(Uri uri) async {
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 }

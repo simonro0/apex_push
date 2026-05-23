@@ -1,6 +1,6 @@
 # ApexPush – Codebase-Dokumentation
 
-> Zuletzt aktualisiert: 2026-05-23 (puud Android-Fix, notification_screen Cleanup, Backlog-Update)  
+> Zuletzt aktualisiert: 2026-05-23 (Strava-Integration Phase 2: OAuth2 + Aktivitäts-Export)  
 > Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
@@ -293,6 +293,21 @@ Statische Hilfsklasse zum Teilen eines Workout-Bildes:
 2. Speichert als PNG in `getTemporaryDirectory()`
 3. Öffnet System-Share-Dialog via `SharePlus.instance.share(ShareParams(files: [XFile(path)]))`
 
+**`StravaService`** (`lib/logic/strava_service.dart`)
+
+Singleton für Strava OAuth2 und Aktivitäts-Export. Credentials werden in `strava_config.dart` konfiguriert.
+
+| Methode                  | Beschreibung                                                                |
+|--------------------------|-----------------------------------------------------------------------------|
+| `isConnected`            | Async getter — true wenn Access-Token in SecureStorage vorhanden            |
+| `connect()`              | OAuth2-Flow via `flutter_appauth` (öffnet Browser/Strava-App)               |
+| `disconnect()`           | Löscht alle gespeicherten Tokens                                             |
+| `exportActivity(...)`    | `POST /v3/activities` — gibt `StravaSuccess(url)` / `StravaError` / `StravaCancelled` zurück |
+
+Token-Lebenszyklus: Tokens in `FlutterSecureStorage` (AES-verschlüsselt), automatischer Refresh 5 min vor Ablauf. Bei 401-Response: automatisches Logout.
+
+Konfiguration: `lib/logic/strava_config.dart` — Client ID + Secret aus [strava.com/settings/api](https://www.strava.com/settings/api), Callback-Domain `apexpush`.
+
 **`NotificationService`** (`lib/logic/notification_service.dart`)
 
 Tägliche und einmalige Benachrichtigungen via `flutter_local_notifications` + `timezone`. Wird in `main.dart` initialisiert.
@@ -366,6 +381,7 @@ Der **Streak-Schutz** (`_streakReminderId = 1`) feuert am letzten möglichen Tra
 - Benachrichtigungen:
   - Tägliche Erinnerung (Toggle + Zeit-Picker)
   - **Streak-Schutz** (eigener Toggle, unabhängig von der täglichen Erinnerung): plant einmalige Benachrichtigung für `letzterTrainingTag + 2`; zeigt verbleibende Stunden bis Mitternacht
+- **Integrationen – Strava**: `FutureBuilder` zeigt Verbindungsstatus (Strava-Orange wenn verbunden); Connect löst OAuth2-Flow aus, Disconnect zeigt Bestätigungsdialog
 - Backup-Aktionen: Export, Import, .puud, CSV, Löschen
 - App-Version via `package_info_plus`
 
@@ -470,6 +486,9 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | `package_info_plus`          | App-Version im About-Screen                      |
 | `url_launcher`               | Links im About-Screen                            |
 | `wakelock_plus`              | Display dauerhaft an während des Trainings       |
+| `flutter_appauth`            | OAuth2 Authorization Code + PKCE (Strava)        |
+| `http`                       | REST-API-Aufrufe (Strava POST /v3/activities)    |
+| `flutter_secure_storage`     | AES-verschlüsselte Token-Ablage (Strava)         |
 
 ---
 
@@ -483,7 +502,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | F2 | Practice-Flow mit Empfehlung   | ✅ | Level-Empfehlung nach freiem Training implementiert                          |
 | F3 | Wochenübersicht                | ✅ | Streak (1-Tag-Toleranz), Volumen- und Tempo-Vergleich zur Vorwoche          |
 | F4 | Share-Feature (Phase 1)        | ✅ | Share-Karte via RepaintBoundary → PNG → share_plus in SessionDetailScreen    |
-| F4 | Strava-Integration (Phase 2)   | ⏳ | OAuth2 + Strava API — noch nicht begonnen                                    |
+| F4 | Strava-Integration (Phase 2)   | ✅ | OAuth2 via flutter_appauth, POST /v3/activities, Token-Refresh, SecureStorage |
 
 ### Bekannte Bugs / Verbesserungsbedarf
 
