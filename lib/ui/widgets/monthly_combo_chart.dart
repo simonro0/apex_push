@@ -69,7 +69,6 @@ class MonthlyComboChart extends StatelessWidget {
         ),
         barTouchData: BarTouchData(
           touchCallback: (FlTouchEvent event, BarTouchResponse? response) {
-            if (event is! FlTapUpEvent) return;
             if (response?.spot == null) return;
             onBarTap(response!.spot!.touchedBarGroup.x);
           },
