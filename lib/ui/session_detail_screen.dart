@@ -913,12 +913,15 @@ class _ShareSheetState extends State<_ShareSheet> {
     // Check if connected; if not, trigger connect flow first.
     final connected = await StravaService.instance.isConnected;
     if (!connected) {
-      final ok = await StravaService.instance.connect();
+      final error = await StravaService.instance.connect();
       if (!mounted) return;
-      if (!ok) {
+      if (error != null) {
         setState(() => _stravaLoading = false);
+        final msg = error == 'cancelled'
+            ? context.tr('strava_cancelled')
+            : error;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('strava_cancelled'))),
+          SnackBar(content: Text(msg), duration: const Duration(seconds: 8)),
         );
         return;
       }

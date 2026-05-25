@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -52,9 +53,16 @@ class StravaService {
 
   /// Runs the OAuth2 authorization code flow (opens browser / Strava app).
   ///
-  /// Returns true on success, false if the user cancelled or an error occurred.
-  Future<bool> connect() async {
-    if (!StravaConfig.isConfigured) return false;
+  /// Returns null on success, or an error message string on failure.
+  /// Returns 'cancelled' if the user aborted the flow themselves.
+  Future<String?> connect() async {
+    if (!StravaConfig.isConfigured) {
+      debugPrint('[Strava] connect() aborted: isConfigured=false '
+          '(clientId="${StravaConfig.clientId}", run with --dart-define-from-file=strava.env.json)');
+      return 'not_configured';
+    }
+    debugPrint('[Strava] starting OAuth2 flow — clientId=${StravaConfig.clientId}, '
+        'redirectUri=${StravaConfig.redirectUri}');
     try {
       final result = await _appAuth.authorizeAndExchangeCode(
         AuthorizationTokenRequest(
@@ -69,9 +77,17 @@ class StravaService {
         ),
       );
       await _storeTokens(result);
-      return true;
-    } catch (_) {
-      return false;
+      debugPrint('[Strava] connect() success');
+      return null; // success
+    } catch (e, st) {
+      debugPrint('[Strava] connect() error: $e');
+      debugPrintStack(stackTrace: st, label: '[Strava]');
+      // PlatformException with code 'user_cancelled_or_closed_window' = user aborted.
+      final msg = e.toString();
+      if (msg.contains('cancel') || msg.contains('dismiss') || msg.contains('closed')) {
+        return 'cancelled';
+      }
+      return msg; // full error for snackbar display
     }
   }
 
@@ -175,8 +191,9 @@ class StravaService {
       );
       await _storeTokens(result);
       return result.accessToken;
-    } catch (_) {
+    } catch (e) {
       // Refresh failed (e.g. user revoked access on Strava).
+      debugPrint('[Strava] token refresh failed: $e');
       await disconnect();
       return null;
     }

@@ -623,12 +623,18 @@ class _StravaTileState extends State<_StravaTile> {
 
   Future<void> _connect() async {
     setState(() => _loading = true);
-    final ok = await StravaService.instance.connect();
+    final error = await StravaService.instance.connect();
     if (!mounted) return;
     setState(() => _loading = false);
-    if (!ok) {
+    if (error != null) {
+      final msg = error == 'cancelled'
+          ? context.tr('strava_cancelled')
+          : error; // show raw error message for debugging
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('strava_cancelled'))),
+        SnackBar(
+          content: Text(msg),
+          duration: const Duration(seconds: 8), // long enough to read
+        ),
       );
     }
     // FutureBuilder rebuilds automatically when setState is called.
