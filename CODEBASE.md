@@ -317,9 +317,13 @@ Singleton für Strava OAuth2 und Aktivitäts-Export. Credentials werden **nicht*
 
 Vorteil gegenüber `POST /v3/activities`: TCX-Upload erzeugt eine **aufgezeichnete Aktivität** (kein „Manual Entry"-Badge), die auf Strava vollwertig ist.
 
-**Kombiniertes Bild-Teilen (`_exportToStrava` in `SessionDetailScreen`):**
+**Kombiniertes Bild-Teilen + App-Deep-Link (`_exportToStrava` in `SessionDetailScreen`):**
 - PNG-Capture via `ShareService.captureToFile()` **vor** dem Schließen des Sheets
-- Nach erfolgreichem Upload: zwei aufeinanderfolgende Snackbars — „ANSEHEN" (Strava-URL) + „BILD TEILEN" (öffnet System-Share für das PNG)
+- Nach erfolgreichem Upload: `canLaunchUrl('strava://activities/{id}')` prüft ob die Strava-App installiert ist
+  - Strava-App vorhanden → erste Snackbar zeigt **„IN APP ÖFFNEN"** (öffnet `strava://activities/{id}` direkt in der App)
+  - Nicht vorhanden → erste Snackbar zeigt **„ANSEHEN"** (öffnet Web-URL)
+- Zweite Snackbar: **„BILD TEILEN"** (öffnet System-Share-Dialog mit dem PNG)
+- AndroidManifest `<queries>`: `strava`-Scheme eingetragen, damit `canLaunchUrl` auf Android 11+ funktioniert
 
 Token-Lebenszyklus: Tokens in `FlutterSecureStorage` (AES-verschlüsselt), automatischer Refresh 5 min vor Ablauf. Bei 401-Response: automatisches Logout.
 
