@@ -909,11 +909,12 @@ class _ShareSheetState extends State<_ShareSheet> {
   }
 
   Future<void> _exportToStrava() async {
-    // Capture the share-card PNG while the widget is still in the tree,
-    // before we close the bottom sheet or do any async work.
-    final pngPath = await ShareService.captureToFile(widget.shareCardKey);
-
+    // Lock the button immediately so rapid taps don't queue multiple exports.
     setState(() => _stravaLoading = true);
+
+    // Capture the share-card PNG while the widget is still in the tree,
+    // before we close the bottom sheet or do any further async work.
+    final pngPath = await ShareService.captureToFile(widget.shareCardKey);
 
     // Check if connected; if not, trigger connect flow first.
     final connected = await StravaService.instance.isConnected;
@@ -943,6 +944,10 @@ class _ShareSheetState extends State<_ShareSheet> {
     Navigator.pop(context); // close sheet before showing snackbar
     if (!mounted) return;
 
+    // Clear any stale snackbars from previous (possibly queued) attempts
+    // before showing the result, so nothing lingers longer than intended.
+    ScaffoldMessenger.of(context).clearSnackBars();
+
     switch (result) {
       case StravaSuccess(:final activityUrl):
         // Extract the numeric activity ID from the URL so we can build
@@ -952,36 +957,44 @@ class _ShareSheetState extends State<_ShareSheet> {
         final hasApp     = await canLaunchUrl(appUri);
         if (!mounted) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
           SnackBar(
-            content: Text(context.tr('strava_success')),
-            action: SnackBarAction(
-              // Deep-link into the Strava app when installed; fall back to web.
-              label: hasApp
-                  ? context.tr('strava_open_in_app')
-                  : context.tr('strava_view'),
-              onPressed: () async {
-                try {
-                  await _launchUrl(hasApp ? appUri : Uri.parse(activityUrl));
-                } catch (_) {}
-              },
+            // Both actions in one snackbar so it auto-dismisses after 5 s.
+            content: Row(
+              children: [
+                Expanded(child: Text(context.tr('strava_success'))),
+                TextButton(
+                  onPressed: () async {
+                    messenger.hideCurrentSnackBar();
+                    try {
+                      await _launchUrl(
+                          hasApp ? appUri : Uri.parse(activityUrl));
+                    } catch (_) {}
+                  },
+                  child: Text(
+                    hasApp
+                        ? context.tr('strava_open_in_app')
+                        : context.tr('strava_view'),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+                if (pngPath != null)
+                  TextButton(
+                    onPressed: () {
+                      messenger.hideCurrentSnackBar();
+                      ShareService.shareFile(pngPath);
+                    },
+                    child: Text(
+                      context.tr('strava_share_image'),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+              ],
             ),
             duration: const Duration(seconds: 5),
           ),
         );
-        // Offer to share the PNG separately (system share sheet).
-        if (pngPath != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.tr('strava_success')),
-              action: SnackBarAction(
-                label: context.tr('strava_share_image'),
-                onPressed: () => ShareService.shareFile(pngPath),
-              ),
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
       case StravaError(:final message):
         final text = switch (message) {
           'unauthorized'   => context.tr('strava_error_unauthorized'),
