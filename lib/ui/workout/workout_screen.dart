@@ -286,10 +286,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   /// Small undo button (bottom-right alignment).  Uses Opacity + IgnorePointer
   /// so the layout stays stable when it becomes invisible at count == 0.
-  Widget _undoButton({
-    required bool visible,
-    required VoidCallback onPressed,
-  }) {
+  Widget _undoButton({required bool visible, required VoidCallback onPressed}) {
     return Opacity(
       opacity: visible ? 1.0 : 0.0,
       child: IgnorePointer(
@@ -304,7 +301,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             icon: const Icon(Icons.undo, size: 16),
             label: const Text('−1', style: TextStyle(fontSize: 13)),
@@ -476,6 +474,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                _undoButton(
+                  visible: setCount > 0,
+                  onPressed: () {
+                    provider.undoLastRep();
+                    HapticFeedback.lightImpact();
+                    // Re-arm the target-reached sound if we fall back below target.
+                    if (_targetReachedPlayed && (setCount - 1) < target) {
+                      setState(() => _targetReachedPlayed = false);
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: buttonColor,
@@ -498,18 +508,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                _undoButton(
-                  visible: setCount > 0,
-                  onPressed: () {
-                    provider.undoLastRep();
-                    HapticFeedback.lightImpact();
-                    // Re-arm the target-reached sound if we fall back below target.
-                    if (_targetReachedPlayed && (setCount - 1) < target) {
-                      setState(() => _targetReachedPlayed = false);
-                    }
-                  },
-                ),
-                const SizedBox(height: 6),
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white54,
