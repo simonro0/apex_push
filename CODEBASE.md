@@ -1,6 +1,6 @@
 # ApexPush – Codebase-Dokumentation
 
-> Zuletzt aktualisiert: 2026-05-23 (Strava-Integration Phase 2: OAuth2 + Aktivitäts-Export)  
+> Zuletzt aktualisiert: 2026-05-25 (Strava-Branch: Konflikt-Überrest in `_showShareSheet` behoben, Branch bereit für Merge)  
 > Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
@@ -502,7 +502,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | F2 | Practice-Flow mit Empfehlung   | ✅ | Level-Empfehlung nach freiem Training implementiert                          |
 | F3 | Wochenübersicht                | ✅ | Streak (1-Tag-Toleranz), Volumen- und Tempo-Vergleich zur Vorwoche          |
 | F4 | Share-Feature (Phase 1)        | ✅ | Share-Karte via RepaintBoundary → PNG → share_plus in SessionDetailScreen    |
-| F4 | Strava-Integration (Phase 2)   | ✅ | OAuth2 via flutter_appauth, POST /v3/activities, Token-Refresh, SecureStorage |
+| F4 | Strava-Integration (Phase 2)   | ✅ | OAuth2 via flutter_appauth, POST /v3/activities, Token-Refresh, SecureStorage; Branch nach Rebase bereinigt |
 
 ### Bekannte Bugs / Verbesserungsbedarf
 
