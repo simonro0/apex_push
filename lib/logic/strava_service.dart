@@ -150,9 +150,9 @@ class StravaService {
         Uri.parse('${StravaConfig.apiBase}/uploads'),
       )
         ..headers['Authorization'] = 'Bearer $token'
-        ..fields['data_type']      = 'tcx'
-        ..fields['activity_type']  = 'weight_training'
-        ..fields['name']           = name
+        ..fields['data_type']   = 'tcx'
+        ..fields['sport_type']  = 'WeightTraining'
+        ..fields['name']        = name
         ..fields['description']    = description
         ..files.add(http.MultipartFile.fromBytes(
           'file',
