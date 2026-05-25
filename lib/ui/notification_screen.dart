@@ -27,30 +27,19 @@ class NotificationScreen extends StatelessWidget {
             onChanged: (v) => _toggle(context, settings, v),
           ),
           // ── Reminder time ──────────────────────────────────────────────────
+          // Always tappable: the time is shared with the streak reminder and
+          // must be adjustable even when the daily reminder is off.
           ListTile(
-            enabled: enabled,
             leading: const Icon(Icons.access_time_outlined),
             title:   Text(context.t('reminder_time')),
             trailing: Text(
               _fmt(settings.reminderHour, settings.reminderMinute),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: enabled
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).disabledColor,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
             ),
-            onTap: enabled ? () => _pickTime(context, settings) : null,
+            onTap: () => _pickTime(context, settings),
           ),
-          if (!enabled)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(72, 0, 16, 16),
-              child: Text(
-                context.t('notifications_hint'),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-            ),
 
           const Divider(indent: 16, endIndent: 16),
 
@@ -143,6 +132,13 @@ class NotificationScreen extends StatelessWidget {
 
   Future<void> _toggleStreakReminder(
       BuildContext context, SettingsProvider settings, bool enable) async {
+    if (enable) {
+      // Request permission first — streak reminder can be enabled independently
+      // of the daily reminder, so we may not have it yet.
+      final granted = await NotificationService.instance.requestPermission();
+      if (!granted || !context.mounted) return;
+    }
+
     await settings.setStreakReminderEnabled(enable);
     if (!context.mounted) return;
 

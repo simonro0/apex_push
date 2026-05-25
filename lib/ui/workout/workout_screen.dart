@@ -301,12 +301,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ),
           Positioned(
             bottom: 50,
-            left: 50,
-            right: 50,
+            left: 20,
+            right: 20,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
                 padding: const EdgeInsets.all(20),
+                minimumSize: const Size(double.infinity, 0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: () => _finish(provider),
               child: Text(
@@ -510,11 +514,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         ),
         Positioned(
           bottom: 50,
-          left: 50,
-          right: 50,
+          left: 20,
+          right: 20,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.all(18),
+              minimumSize: const Size(double.infinity, 0),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
