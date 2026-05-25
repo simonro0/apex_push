@@ -282,6 +282,39 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
+  // ── Undo button ───────────────────────────────────────────────────────────
+
+  /// Small undo button (bottom-right alignment).  Uses Opacity + IgnorePointer
+  /// so the layout stays stable when it becomes invisible at count == 0.
+  Widget _undoButton({
+    required bool visible,
+    required VoidCallback onPressed,
+  }) {
+    return Opacity(
+      opacity: visible ? 1.0 : 0.0,
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white38,
+              side: const BorderSide(color: Colors.white24),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            icon: const Icon(Icons.undo, size: 16),
+            label: const Text('−1', style: TextStyle(fontSize: 13)),
+            onPressed: onPressed,
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Free-training mode ────────────────────────────────────────────────────
 
   Widget _buildFreeTraining(WorkoutProvider provider) {
@@ -313,20 +346,33 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             bottom: 50,
             left: 20,
             right: 20,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                padding: const EdgeInsets.all(20),
-                minimumSize: const Size(double.infinity, 0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _undoButton(
+                  visible: provider.currentCount > 0,
+                  onPressed: () {
+                    provider.undoLastRep();
+                    HapticFeedback.lightImpact();
+                  },
                 ),
-              ),
-              onPressed: () => _finish(provider),
-              child: Text(
-                context.t('finish_session'),
-                style: const TextStyle(fontSize: 20, color: Colors.white),
-              ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    padding: const EdgeInsets.all(20),
+                    minimumSize: const Size(double.infinity, 0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => _finish(provider),
+                  child: Text(
+                    context.t('finish_session'),
+                    style: const TextStyle(fontSize: 20, color: Colors.white),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -452,6 +498,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
+                _undoButton(
+                  visible: setCount > 0,
+                  onPressed: () {
+                    provider.undoLastRep();
+                    HapticFeedback.lightImpact();
+                    // Re-arm the target-reached sound if we fall back below target.
+                    if (_targetReachedPlayed && (setCount - 1) < target) {
+                      setState(() => _targetReachedPlayed = false);
+                    }
+                  },
+                ),
+                const SizedBox(height: 6),
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white54,
