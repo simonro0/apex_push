@@ -1,6 +1,6 @@
 # ApexPush – Codebase-Dokumentation
 
-> Zuletzt aktualisiert: 2026-05-25 (Strava-Credentials via `--dart-define-from-file` aus Quellcode herausgelöst)  
+> Zuletzt aktualisiert: 2026-05-25 (Strava-Integration vollständig: flutter_web_auth_2, Share-Card-Verbesserungen, reichhaltige Aktivitätsbeschreibung)  
 > Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
@@ -300,7 +300,7 @@ Singleton für Strava OAuth2 und Aktivitäts-Export. Credentials werden **nicht*
 | Methode                  | Beschreibung                                                                |
 |--------------------------|-----------------------------------------------------------------------------|
 | `isConnected`            | Async getter — true wenn Access-Token in SecureStorage vorhanden            |
-| `connect()`              | OAuth2-Flow via `flutter_appauth` (öffnet Browser/Strava-App)               |
+| `connect()`              | OAuth2-Flow via `flutter_web_auth_2` (Custom Tab) + manueller Token-Exchange per HTTP POST |
 | `disconnect()`           | Löscht alle gespeicherten Tokens                                             |
 | `exportActivity(...)`    | `POST /v3/activities` — gibt `StravaSuccess(url)` / `StravaError` / `StravaCancelled` zurück |
 
@@ -365,7 +365,8 @@ Der **Streak-Schutz** (`_streakReminderId = 1`) feuert am letzten möglichen Tra
 - Historisch: ohne Splits (aus RecordScreen geöffnet)
 
 **`ShareCard`** (`lib/ui/widgets/share_card.dart`)
-- Branded dark Card (360 px breit, fester Hintergrund `#0E0E1A`/`#1A1A2E`)
+- Branded dark Card (360 px breit, fester Hintergrund `#0E0E1A`/`#1A1A2E`), theme-unabhängig
+- Lila Akzentlinie oben, Level-Badge (grün/orange/rot je Schwierigkeit), Mini-Balkendiagramm der Sätze (2–12 Sätze)
 - Inhalt: App-Logo + Name, Datum, große Wiederholungszahl, Push-Up-Label, optionales Sub-Label, Dauer-Chip, Kalorien-Chip
 - Parameter: `subLabel: String?` — wird in `session_detail_screen.dart` berechnet:
   - Strukturiertes Training: tatsächliche Satz-Splits, z.B. `"12 · 10 · 8 · 8 · 8"`
@@ -486,7 +487,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | `package_info_plus`          | App-Version im About-Screen                      |
 | `url_launcher`               | Links im About-Screen                            |
 | `wakelock_plus`              | Display dauerhaft an während des Trainings       |
-| `flutter_appauth`            | OAuth2 Authorization Code + PKCE (Strava)        |
+| `flutter_web_auth_2`         | OAuth2 Custom Tab + Callback-Handling (Strava)   |
 | `http`                       | REST-API-Aufrufe (Strava POST /v3/activities)    |
 | `flutter_secure_storage`     | AES-verschlüsselte Token-Ablage (Strava)         |
 
@@ -502,7 +503,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | F2 | Practice-Flow mit Empfehlung   | ✅ | Level-Empfehlung nach freiem Training implementiert                          |
 | F3 | Wochenübersicht                | ✅ | Streak (1-Tag-Toleranz), Volumen- und Tempo-Vergleich zur Vorwoche          |
 | F4 | Share-Feature (Phase 1)        | ✅ | Share-Karte via RepaintBoundary → PNG → share_plus in SessionDetailScreen    |
-| F4 | Strava-Integration (Phase 2)   | ✅ | OAuth2 via flutter_appauth, POST /v3/activities, Token-Refresh, SecureStorage; Branch nach Rebase bereinigt |
+| F4 | Strava-Integration (Phase 2)   | ✅ | OAuth2 via flutter_web_auth_2 (löst AppAuth-Task-Affinity-Problem), POST /v3/activities, Token-Refresh, reichhaltige Emoji-Beschreibung |
 
 ### Bekannte Bugs / Verbesserungsbedarf
 
