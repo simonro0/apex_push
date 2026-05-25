@@ -29,7 +29,12 @@ class StravaConfig {
 
   /// OAuth2 redirect URI – must match the appAuthRedirectScheme in
   /// build.gradle.kts and the callback domain on strava.com/settings/api.
-  static const redirectUri = 'apexpush://oauth2/callback';
+  ///
+  /// URI structure: scheme://host/path
+  ///   scheme → appAuthRedirectScheme in build.gradle.kts  (= "apexpush")
+  ///   host   → "Authorization Callback Domain" on strava.com/settings/api (= "apexpush")
+  /// Both must match – Strava validates the host component, not the scheme.
+  static const redirectUri = 'apexpush://apexpush/callback';
   static const scopes      = ['activity:write'];
 
   static const _authEndpoint  = 'https://www.strava.com/oauth/mobile/authorize';
