@@ -278,28 +278,62 @@ class StravaService {
   String _activityName(Workout workout, String locale) {
     if (workout.isFreeTraining) {
       return locale == 'de'
-          ? 'Liegestütz-Training – Frei'
-          : 'Push-Up Training – Free';
+          ? '💪 Liegestütz-Training – Frei'
+          : '💪 Push-Up Training – Free';
     }
     final level = workout.levelId ?? '';
     final diff  = workout.difficulty ?? '';
     return locale == 'de'
-        ? 'Liegestütz-Training – $level $diff'
-        : 'Push-Up Training – $level $diff';
+        ? '💪 Liegestütz-Training – $level $diff'
+        : '💪 Push-Up Training – $level $diff';
   }
 
   String _description(Workout workout, List<int> splits, String locale) {
-    final total = workout.count;
+    final total    = workout.count;
+    final mins     = workout.durationSeconds ~/ 60;
+    final secs     = workout.durationSeconds % 60;
+    final dur      = mins > 0
+        ? '${mins}m ${secs.toString().padLeft(2, '0')}s'
+        : '${secs}s';
+    final calories = (total * 0.5).round();
+    final sep      = '─────────────────────';
+
     if (locale == 'de') {
-      if (workout.isFreeTraining || splits.isEmpty) {
-        return 'Freies Training\n$total Wiederholungen';
+      final buf = StringBuffer();
+      buf.writeln(sep);
+      if (!workout.isFreeTraining) {
+        final level = workout.levelId ?? '';
+        final diff  = workout.difficulty ?? '';
+        buf.writeln('🎯 Level $level · $diff');
+        buf.writeln();
       }
-      return 'Sätze: ${splits.join(' · ')}\nGesamt: $total Wdh.';
+      if (splits.isNotEmpty) {
+        buf.writeln('📊 Sätze:  ${splits.join(' · ')}');
+      }
+      buf.writeln('🔢 Gesamt: $total Wdh.');
+      buf.writeln('⏱️ Dauer:  $dur');
+      buf.writeln('🔥 Kalorien: ~$calories kcal');
+      buf.writeln(sep);
+      buf.write('📱 ApexPush');
+      return buf.toString();
     } else {
-      if (workout.isFreeTraining || splits.isEmpty) {
-        return 'Free Training\n$total reps';
+      final buf = StringBuffer();
+      buf.writeln(sep);
+      if (!workout.isFreeTraining) {
+        final level = workout.levelId ?? '';
+        final diff  = workout.difficulty ?? '';
+        buf.writeln('🎯 Level $level · $diff');
+        buf.writeln();
       }
-      return 'Sets: ${splits.join(' · ')}\nTotal: $total reps';
+      if (splits.isNotEmpty) {
+        buf.writeln('📊 Sets:      ${splits.join(' · ')}');
+      }
+      buf.writeln('🔢 Total:     $total reps');
+      buf.writeln('⏱️ Duration:  $dur');
+      buf.writeln('🔥 Calories:  ~$calories kcal');
+      buf.writeln(sep);
+      buf.write('📱 ApexPush');
+      return buf.toString();
     }
   }
 
