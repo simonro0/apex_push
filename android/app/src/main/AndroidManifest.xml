@@ -30,8 +30,9 @@
             </intent-filter>
         </activity>
         <!-- flutter_appauth: receives the OAuth2 redirect after Strava authorization.
-             Handles apexpush://oauth2/callback?code=...&state=... coming back from Chrome.
-             The appAuthRedirectScheme manifest placeholder in build.gradle.kts points here. -->
+             Handles apexpush://apexpush/callback?code=...&state=... coming back from Chrome.
+             scheme = appAuthRedirectScheme in build.gradle.kts
+             host   = "Authorization Callback Domain" on strava.com/settings/api -->
         <activity
             android:name="net.openid.appauth.RedirectUriReceiverActivity"
             android:exported="true">
@@ -39,7 +40,7 @@
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="apexpush"/>
+                <data android:scheme="apexpush" android:host="apexpush"/>
             </intent-filter>
         </activity>
 
