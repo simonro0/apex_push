@@ -1,6 +1,6 @@
 # ApexPush – Codebase-Dokumentation
 
-> Zuletzt aktualisiert: 2026-05-25 (Strava-Branch: Konflikt-Überrest in `_showShareSheet` behoben, Branch bereit für Merge)  
+> Zuletzt aktualisiert: 2026-05-25 (Strava-Credentials via `--dart-define-from-file` aus Quellcode herausgelöst)  
 > Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
@@ -295,7 +295,7 @@ Statische Hilfsklasse zum Teilen eines Workout-Bildes:
 
 **`StravaService`** (`lib/logic/strava_service.dart`)
 
-Singleton für Strava OAuth2 und Aktivitäts-Export. Credentials werden in `strava_config.dart` konfiguriert.
+Singleton für Strava OAuth2 und Aktivitäts-Export. Credentials werden **nicht** im Quellcode gespeichert, sondern zur Kompilierzeit via `--dart-define-from-file=strava.env.json` injiziert.
 
 | Methode                  | Beschreibung                                                                |
 |--------------------------|-----------------------------------------------------------------------------|
@@ -306,7 +306,7 @@ Singleton für Strava OAuth2 und Aktivitäts-Export. Credentials werden in `stra
 
 Token-Lebenszyklus: Tokens in `FlutterSecureStorage` (AES-verschlüsselt), automatischer Refresh 5 min vor Ablauf. Bei 401-Response: automatisches Logout.
 
-Konfiguration: `lib/logic/strava_config.dart` — Client ID + Secret aus [strava.com/settings/api](https://www.strava.com/settings/api), Callback-Domain `apexpush`.
+Konfiguration: `lib/logic/strava_config.dart` liest `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` via `String.fromEnvironment()`. Echte Werte in `strava.env.json` (gitignored, nie committen) — Template: `strava.env.json.example`. Ohne Werte ist `isConfigured == false` und alle Strava-UI-Elemente werden ausgeblendet. Callback-Domain: `apexpush`.
 
 **`NotificationService`** (`lib/logic/notification_service.dart`)
 
