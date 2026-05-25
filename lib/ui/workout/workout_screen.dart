@@ -25,16 +25,16 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
-  List<int> _targetReps = [];
-  int _currentSet = 0;
-  int _setStartCount = 0;
+  List<int> _targetReps   = [];
+  int  _currentSet        = 0;
+  int  _setStartCount     = 0;
 
   Timer? _restTimer;
-  int _restSecondsLeft = 0;
-  bool _inRest = false;
+  int    _restSecondsLeft = 0;
+  bool   _inRest          = false;
 
   bool _targetReachedPlayed = false;
-  bool _isFinishing = false;
+  bool _isFinishing         = false;
 
   @override
   void initState() {
@@ -65,13 +65,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   int _setCountFrom(WorkoutProvider p) => p.currentCount - _setStartCount;
-  int get _setsTotal => _targetReps.length;
+  int get _setsTotal  => _targetReps.length;
   bool get _isBurnout => !widget.isFreeTraining && _currentSet >= _setsTotal;
   int _targetFor(int i) => i < _targetReps.length ? _targetReps[i] : 0;
 
   Color _finishButtonColor(int setCount, int target) {
     if (setCount < target) return Colors.red.shade700;
-    if (target == 0) return Colors.green.shade600;
+    if (target == 0)       return Colors.green.shade600;
     final ratio = ((setCount - target) / max(target, 1) * 4).clamp(0.0, 1.0);
     return Color.lerp(Colors.green.shade300, Colors.green.shade900, ratio)!;
   }
@@ -95,7 +95,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       }
       if (!widget.isFreeTraining && !_targetReachedPlayed) {
         final setCount = _setCountFrom(provider);
-        final target = _targetFor(_currentSet);
+        final target   = _targetFor(_currentSet);
         if (target > 0 && setCount >= target) {
           _targetReachedPlayed = true;
           AudioService.instance.playTargetReached();
@@ -115,7 +115,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     // Skip rest before the burnout set so it starts immediately.
     if (_currentSet + 1 >= _setsTotal) {
       setState(() {
-        _setStartCount = provider.currentCount;
+        _setStartCount       = provider.currentCount;
         _currentSet++;
         _targetReachedPlayed = false;
       });
@@ -130,18 +130,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     _restTimer?.cancel();
     setState(() {
-      _setStartCount = provider.currentCount;
+      _setStartCount        = provider.currentCount;
       _currentSet++;
-      _inRest = true;
-      _restSecondsLeft = restSecs;
-      _targetReachedPlayed = false;
+      _inRest               = true;
+      _restSecondsLeft      = restSecs;
+      _targetReachedPlayed  = false;
     });
 
     _restTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) {
-        t.cancel();
-        return;
-      }
+      if (!mounted) { t.cancel(); return; }
       if (_restSecondsLeft <= 1) {
         t.cancel();
         setState(() => _inRest = false);
@@ -158,7 +155,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void _skipRest() {
     _restTimer?.cancel();
     setState(() {
-      _inRest = false;
+      _inRest              = false;
       _targetReachedPlayed = false;
     });
   }
@@ -171,29 +168,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Future<void> _finish(WorkoutProvider provider) async {
     _restTimer?.cancel();
 
-    final isFree = widget.isFreeTraining;
+    final isFree         = widget.isFreeTraining;
     final targetRepsCopy = List<int>.from(_targetReps);
-    final splitsCopy = List<int>.from(provider.sessionSplits);
+    final splitsCopy     = List<int>.from(provider.sessionSplits);
 
     // Read settings before the async gap (context must not be used after await).
-    final settings = context.read<SettingsProvider>();
+    final settings     = context.read<SettingsProvider>();
     final verifiedReps = provider.lastVerifiedReps;
-    final workout = await provider.saveWorkout(isFreeTraining: isFree);
+    final workout      = await provider.saveWorkout(isFreeTraining: isFree);
     if (!mounted) return;
 
     // Reschedule streak reminder: fires once on workout.date + 2 days.
     if (settings.streakReminderEnabled) {
       final hoursLeft = 24 - settings.reminderHour;
-      final locale = settings.locale;
+      final locale    = settings.locale;
       await NotificationService.instance.scheduleStreakReminder(
         lastWorkoutDate: workout.date,
-        hour: settings.reminderHour,
+        hour:   settings.reminderHour,
         minute: settings.reminderMinute,
-        title: AppLocalizations.translate('streak_notif_title', locale),
-        body: AppLocalizations.translate(
-          'streak_notif_body',
-          locale,
-        ).replaceAll('{h}', '$hoursLeft'),
+        title:  AppLocalizations.translate('streak_notif_title', locale),
+        body:   AppLocalizations.translate('streak_notif_body', locale)
+            .replaceAll('{h}', '$hoursLeft'),
       );
     }
     if (!mounted) return;
@@ -206,11 +201,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => SessionDetailScreen(
-          workout: workout,
-          splits: splitsCopy,
-          targetReps: targetRepsCopy,
+          workout:      workout,
+          splits:       splitsCopy,
+          targetReps:   targetRepsCopy,
           verifiedReps: verifiedReps,
-          history: historyCopy,
+          history:      historyCopy,
         ),
       ),
     );
@@ -218,18 +213,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     // ── Post-training flow ───────────────────────────────────────────────────
     if (isFree) {
-      final difficulty = provider.activeProgram.difficulty;
+      final difficulty  = provider.activeProgram.difficulty;
       final recommended = TrainingData.recommendUnit(workout.count, difficulty);
-      final accepted = await _showPracticeRecommendationDialog(
-        context,
-        workout.count,
-        recommended,
-        difficulty,
-      );
+      final accepted    = await _showPracticeRecommendationDialog(
+          context, workout.count, recommended, difficulty);
       if (accepted == true && mounted) {
         await provider.saveActiveProgram(
-          ActiveProgram(unitId: recommended, difficulty: difficulty),
-        );
+            ActiveProgram(unitId: recommended, difficulty: difficulty));
       }
     } else {
       final direction = await _showFeedbackDialog(context);
@@ -248,13 +238,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     Navigator.pop(context);
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // ── Back press ────────────────────────────────────────────────────────────
 
   Future<void> _handleBackPress(WorkoutProvider provider) async {
     final ok = await _showAbortSessionDialog(context);
     if (ok != true || !mounted) return;
     if (_inRest) {
-      // Rest phase: set split was already recorded when rest started; just finish.
       _restTimer?.cancel();
       setState(() => _inRest = false);
       await _finish(provider);
@@ -274,7 +263,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         if (!didPop) _handleBackPress(provider);
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
         body: widget.isFreeTraining
             ? _buildFreeTraining(provider)
             : _buildStructured(provider),
@@ -287,6 +275,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   /// Small undo button (bottom-right alignment).  Uses Opacity + IgnorePointer
   /// so the layout stays stable when it becomes invisible at count == 0.
   Widget _undoButton({required bool visible, required VoidCallback onPressed}) {
+    final cs = Theme.of(context).colorScheme;
+    final fg = cs.onSurface.withValues(alpha: 0.54);
     return Opacity(
       opacity: visible ? 1.0 : 0.0,
       child: IgnorePointer(
@@ -295,14 +285,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           alignment: Alignment.centerRight,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white38,
-              side: const BorderSide(color: Colors.white24),
+              foregroundColor: fg,
+              side: BorderSide(color: fg),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+                  borderRadius: BorderRadius.circular(10)),
             ),
             icon: const Icon(Icons.undo, size: 16),
             label: const Text('−1', style: TextStyle(fontSize: 13)),
@@ -316,6 +305,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   // ── Free-training mode ────────────────────────────────────────────────────
 
   Widget _buildFreeTraining(WorkoutProvider provider) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => _onTap(provider),
       behavior: HitTestBehavior.opaque,
@@ -327,13 +317,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               children: [
                 Text(
                   context.t('free_training'),
-                  style: const TextStyle(color: Colors.white54, fontSize: 20),
+                  style: TextStyle(
+                      color: cs.onSurface.withValues(alpha: 0.54), fontSize: 20),
                 ),
                 Text(
                   '${provider.currentCount}',
-                  style: const TextStyle(
-                    fontSize: 180,
-                    color: Colors.white,
+                  style: TextStyle(
+                    fontSize:   180,
+                    color:      cs.onSurface,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -342,8 +333,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ),
           Positioned(
             bottom: 50,
-            left: 20,
-            right: 20,
+            left:   20,
+            right:  20,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -358,11 +349,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.redAccent,
-                    padding: const EdgeInsets.all(20),
-                    minimumSize: const Size(double.infinity, 0),
+                    padding:         const EdgeInsets.all(20),
+                    minimumSize:     const Size(double.infinity, 0),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () => _finish(provider),
                   child: Text(
@@ -386,10 +376,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Widget _buildActiveSet(WorkoutProvider provider) {
-    final setCount = _setCountFrom(provider);
-    final target = _targetFor(_currentSet);
+    final cs        = Theme.of(context).colorScheme;
+    final hint      = cs.onSurface.withValues(alpha: 0.54);
+    final setCount  = _setCountFrom(provider);
+    final target    = _targetFor(_currentSet);
     final isBurnout = _isBurnout;
-    final atTarget = isBurnout || setCount >= target;
+    final atTarget  = isBurnout || setCount >= target;
 
     final buttonColor = _finishButtonColor(setCount, target);
     final buttonLabel = atTarget
@@ -402,14 +394,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       child: Stack(
         children: [
           Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            left: 0,
+            top:   MediaQuery.of(context).padding.top + 8,
+            left:  0,
             right: 0,
             child: _SetOverview(
-              setsTotal: _setsTotal,
+              setsTotal:  _setsTotal,
               currentSet: _currentSet,
               targetReps: _targetReps,
-              splits: provider.sessionSplits,
+              splits:     provider.sessionSplits,
               hasBurnout: !widget.isFreeTraining,
             ),
           ),
@@ -421,46 +413,41 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   isBurnout
                       ? context.t('burnout')
                       : context.tp('set_x_of_y', {
-                          'set': '${_currentSet + 1}',
+                          'set':   '${_currentSet + 1}',
                           'total': '$_setsTotal',
                         }),
-                  style: const TextStyle(color: Colors.white54, fontSize: 25),
+                  style: TextStyle(color: hint, fontSize: 25),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   !isBurnout ? context.tp('target_reps', {'n': '$target'}) : '',
-                  style: const TextStyle(color: Colors.white54, fontSize: 20),
+                  style: TextStyle(color: hint, fontSize: 20),
                 ),
                 Text(
                   '$setCount',
                   style: TextStyle(
                     fontSize: 160,
-                    color:
-                        (isBurnout && setCount > 0) || (!isBurnout && atTarget)
+                    color: (isBurnout && setCount > 0) || (!isBurnout && atTarget)
                         ? Colors.greenAccent
-                        : Colors.white,
+                        : cs.onSurface,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 if (!isBurnout && target > 0 && setCount <= target)
                   Text(
-                    context.tp('countdown_remaining', {
-                      'n': '${target - setCount}',
-                    }),
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 20,
+                    context.tp('countdown_remaining', {'n': '${target - setCount}'}),
+                    style: TextStyle(
+                      color:      hint,
+                      fontSize:   20,
                       fontWeight: FontWeight.w300,
                     ),
                   )
                 else if (!isBurnout && target > 0 && setCount > target)
                   Text(
-                    context.tp('countdown_extra', {
-                      'n': '${setCount - target}',
-                    }),
+                    context.tp('countdown_extra', {'n': '${setCount - target}'}),
                     style: const TextStyle(
-                      color: Colors.greenAccent,
-                      fontSize: 20,
+                      color:      Colors.greenAccent,
+                      fontSize:   20,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -469,8 +456,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ),
           Positioned(
             bottom: 50,
-            left: 20,
-            right: 20,
+            left:   20,
+            right:  20,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -489,11 +476,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: buttonColor,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    minimumSize: const Size(double.infinity, 0),
+                    padding:         const EdgeInsets.symmetric(vertical: 18),
+                    minimumSize:     const Size(double.infinity, 0),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () async {
                     if (!atTarget) {
@@ -510,13 +496,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 const SizedBox(height: 10),
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white54,
-                    side: const BorderSide(color: Colors.white54),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    minimumSize: const Size(double.infinity, 0),
+                    foregroundColor: hint,
+                    side:            BorderSide(color: hint),
+                    padding:         const EdgeInsets.symmetric(vertical: 16),
+                    minimumSize:     const Size(double.infinity, 0),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () async {
                     final ok = await _showAbortSessionDialog(context);
@@ -537,21 +522,23 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Widget _buildRestPhase(WorkoutProvider provider) {
-    final nextTarget = _targetFor(_currentSet);
+    final cs          = Theme.of(context).colorScheme;
+    final hint        = cs.onSurface.withValues(alpha: 0.54);
+    final nextTarget  = _targetFor(_currentSet);
     final nextIsBurnout = !widget.isFreeTraining && _currentSet >= _setsTotal;
-    final isLast3 = _restSecondsLeft <= 3;
+    final isLast3     = _restSecondsLeft <= 3;
 
     return Stack(
       children: [
         Positioned(
-          top: MediaQuery.of(context).padding.top + 8,
-          left: 0,
+          top:   MediaQuery.of(context).padding.top + 8,
+          left:  0,
           right: 0,
           child: _SetOverview(
-            setsTotal: _setsTotal,
+            setsTotal:  _setsTotal,
             currentSet: _currentSet,
             targetReps: _targetReps,
-            splits: provider.sessionSplits,
+            splits:     provider.sessionSplits,
             hasBurnout: !widget.isFreeTraining,
           ),
         ),
@@ -561,18 +548,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             children: [
               Text(
                 context.t('rest'),
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 22,
-                  letterSpacing: 4,
-                ),
+                style: TextStyle(
+                    color: hint, fontSize: 22, letterSpacing: 4),
               ),
               const SizedBox(height: 16),
               Text(
                 '$_restSecondsLeft',
                 style: TextStyle(
-                  fontSize: 120,
-                  color: isLast3 ? Colors.orangeAccent : Colors.white,
+                  fontSize:   120,
+                  color:      isLast3 ? Colors.orangeAccent : cs.onSurface,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -581,22 +565,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 nextIsBurnout
                     ? context.t('burnout_next')
                     : context.tp('next_set_reps', {'n': '$nextTarget'}),
-                style: const TextStyle(color: Colors.white54, fontSize: 20),
+                style: TextStyle(color: hint, fontSize: 20),
               ),
             ],
           ),
         ),
         Positioned(
           bottom: 50,
-          left: 20,
-          right: 20,
+          left:   20,
+          right:  20,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.all(18),
+              padding:     const EdgeInsets.all(18),
               minimumSize: const Size(double.infinity, 0),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+                  borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: _skipRest,
             child: Text(
@@ -621,18 +604,17 @@ class _SetOverview extends StatelessWidget {
     this.hasBurnout = false,
   });
 
-  final int setsTotal;
-  final int currentSet;
+  final int       setsTotal;
+  final int       currentSet;
   final List<int> targetReps;
   final List<int> splits;
-  final bool hasBurnout;
+  final bool      hasBurnout;
 
   @override
   Widget build(BuildContext context) {
     final burnoutIsCurrent = hasBurnout && currentSet >= setsTotal;
-    final burnoutAchieved = burnoutIsCurrent && setsTotal < splits.length
-        ? splits[setsTotal]
-        : null;
+    final burnoutAchieved  =
+        burnoutIsCurrent && setsTotal < splits.length ? splits[setsTotal] : null;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -640,22 +622,22 @@ class _SetOverview extends StatelessWidget {
       child: Row(
         children: [
           ...List.generate(setsTotal, (i) {
-            final target = i < targetReps.length ? targetReps[i] : 0;
-            final isDone = i < currentSet;
+            final target   = i < targetReps.length ? targetReps[i] : 0;
+            final isDone   = i < currentSet;
             final isCurrent = i == currentSet;
-            final achieved = isDone && i < splits.length ? splits[i] : null;
+            final achieved  = isDone && i < splits.length ? splits[i] : null;
 
             return _SetChip(
-              index: i,
-              target: target,
-              achieved: achieved,
+              index:     i,
+              target:    target,
+              achieved:  achieved,
               isCurrent: isCurrent,
             );
           }),
           if (hasBurnout)
             _BurnoutChip(
               isCurrent: burnoutIsCurrent,
-              achieved: burnoutAchieved,
+              achieved:  burnoutAchieved,
             ),
         ],
       ),
@@ -671,40 +653,41 @@ class _SetChip extends StatelessWidget {
     required this.isCurrent,
   });
 
-  final int index;
-  final int target;
+  final int  index;
+  final int  target;
   final int? achieved;
   final bool isCurrent;
 
   @override
   Widget build(BuildContext context) {
+    final cs    = Theme.of(context).colorScheme;
     final isDone = achieved != null;
-    final ok = isDone && achieved! >= target;
+    final ok     = isDone && achieved! >= target;
 
-    Color bg;
-    Color fg;
+    final Color bg;
+    final Color fg;
     if (isCurrent) {
-      bg = Colors.white24;
-      fg = Colors.white;
+      bg = cs.onSurface.withValues(alpha: 0.15);
+      fg = cs.onSurface;
     } else if (isDone) {
       bg = ok ? Colors.green.shade800 : Colors.orange.shade800;
-      fg = Colors.white;
+      fg = Colors.white;          // always on dark green / orange bg
     } else {
-      bg = Colors.white10;
-      fg = Colors.white38;
+      bg = cs.onSurface.withValues(alpha: 0.08);
+      fg = cs.onSurface.withValues(alpha: 0.38);
     }
 
-    final label = isDone ? '${achieved!}' : '$target';
+    final label    = isDone ? '${achieved!}' : '$target';
     final sublabel = isDone ? '/ $target' : context.t('reps_short');
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      margin:  const EdgeInsets.symmetric(horizontal: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: bg,
+        color:        bg,
         borderRadius: BorderRadius.circular(10),
         border: isCurrent
-            ? Border.all(color: Colors.white54, width: 1.5)
+            ? Border.all(color: cs.onSurface.withValues(alpha: 0.54), width: 1.5)
             : null,
       ),
       child: Column(
@@ -713,16 +696,16 @@ class _SetChip extends StatelessWidget {
           Text(
             'S${index + 1}',
             style: TextStyle(
-              color: fg.withAlpha(180),
-              fontSize: 12,
+              color:      fg.withAlpha(180),
+              fontSize:   12,
               fontWeight: FontWeight.w500,
             ),
           ),
           Text(
             label,
             style: TextStyle(
-              color: fg,
-              fontSize: 20,
+              color:      fg,
+              fontSize:   20,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -745,14 +728,19 @@ class _BurnoutChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color bg = isCurrent ? Colors.deepOrange.shade800 : Colors.white10;
-    final Color fg = isCurrent ? Colors.white : Colors.white38;
+    final cs = Theme.of(context).colorScheme;
+    final Color bg = isCurrent
+        ? Colors.deepOrange.shade800
+        : cs.onSurface.withValues(alpha: 0.08);
+    final Color fg = isCurrent
+        ? Colors.white                           // on dark deepOrange bg
+        : cs.onSurface.withValues(alpha: 0.38);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      margin:  const EdgeInsets.symmetric(horizontal: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: bg,
+        color:        bg,
         borderRadius: BorderRadius.circular(10),
         border: isCurrent
             ? Border.all(color: Colors.orangeAccent, width: 1.5)
@@ -765,8 +753,8 @@ class _BurnoutChip extends StatelessWidget {
           Text(
             achieved != null ? '${achieved!}' : context.t('burnout_chip'),
             style: TextStyle(
-              color: fg,
-              fontSize: 20,
+              color:      fg,
+              fontSize:   20,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -782,94 +770,90 @@ class _BurnoutChip extends StatelessWidget {
 
 // ── Dialogs ───────────────────────────────────────────────────────────────────
 
-Future<bool?> _showAbortSetDialog(
-  BuildContext context,
-  bool isLast,
-) => showDialog<bool>(
-  context: context,
-  builder: (_) => AlertDialog(
-    title: Text(context.tr(isLast ? 'abort_last_title' : 'abort_set_title')),
-    content: Text(context.tr(isLast ? 'abort_last_msg' : 'abort_set_msg')),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context, false),
-        child: Text(context.tr('back')),
+Future<bool?> _showAbortSetDialog(BuildContext context, bool isLast) =>
+    showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title:   Text(context.tr(isLast ? 'abort_last_title' : 'abort_set_title')),
+        content: Text(context.tr(isLast ? 'abort_last_msg'   : 'abort_set_msg')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.tr('back')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              context.tr(isLast ? 'abort_training_btn' : 'abort_set_btn'),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
-      ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
-        onPressed: () => Navigator.pop(context, true),
-        child: Text(
-          context.tr(isLast ? 'abort_training_btn' : 'abort_set_btn'),
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
-    ],
-  ),
-);
+    );
 
-Future<bool?> _showAbortSessionDialog(BuildContext context) => showDialog<bool>(
-  context: context,
-  builder: (_) => AlertDialog(
-    title: Text(context.tr('abort_session_title')),
-    content: Text(context.tr('abort_session_msg')),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context, false),
-        child: Text(context.tr('keep_going')),
+Future<bool?> _showAbortSessionDialog(BuildContext context) =>
+    showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title:   Text(context.tr('abort_session_title')),
+        content: Text(context.tr('abort_session_msg')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.tr('keep_going')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              context.tr('abort'),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
-      ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
-        onPressed: () => Navigator.pop(context, true),
-        child: Text(
-          context.tr('abort'),
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
-    ],
-  ),
-);
+    );
 
-Future<String?> _showFeedbackDialog(BuildContext context) => showDialog<String>(
-  context: context,
-  barrierDismissible: false,
-  builder: (_) => AlertDialog(
-    title: Text(context.tr('training_finished')),
-    content: Text(context.tr('how_was_difficulty')),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context, 'down'),
-        child: Text(context.tr('too_hard')),
+Future<String?> _showFeedbackDialog(BuildContext context) =>
+    showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title:   Text(context.tr('training_finished')),
+        content: Text(context.tr('how_was_difficulty')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'down'),
+            child: Text(context.tr('too_hard')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'keep'),
+            child: Text(context.tr('just_right')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, 'up'),
+            child: Text(context.tr('too_easy')),
+          ),
+        ],
       ),
-      TextButton(
-        onPressed: () => Navigator.pop(context, 'keep'),
-        child: Text(context.tr('just_right')),
-      ),
-      ElevatedButton(
-        onPressed: () => Navigator.pop(context, 'up'),
-        child: Text(context.tr('too_easy')),
-      ),
-    ],
-  ),
-);
+    );
 
 Future<bool?> _showPracticeRecommendationDialog(
-  BuildContext context,
-  int reps,
-  String unitId,
-  String difficulty,
-) {
+    BuildContext context, int reps, String unitId, String difficulty) {
   final repsForLevel = TrainingData.getReps(unitId, difficulty);
   return showDialog<bool>(
     context: context,
     barrierDismissible: false,
     builder: (_) => AlertDialog(
-      title: Text(context.tr('practice_rec_title')),
+      title:   Text(context.tr('practice_rec_title')),
       content: Text(
         context.tp('practice_rec_body', {
-          'n': '$reps',
+          'n':     '$reps',
           'level': unitId,
-          'diff': difficulty,
-          'reps': repsForLevel.join(' – '),
+          'diff':  difficulty,
+          'reps':  repsForLevel.join(' – '),
         }),
       ),
       actions: [
@@ -887,15 +871,13 @@ Future<bool?> _showPracticeRecommendationDialog(
 }
 
 Future<void> _showLevelChangedDialog(
-  BuildContext context,
-  WorkoutProvider provider,
-) async {
-  final p = provider.activeProgram;
+    BuildContext context, WorkoutProvider provider) async {
+  final p    = provider.activeProgram;
   final reps = TrainingData.getReps(p.unitId, p.difficulty);
   await showDialog<void>(
     context: context,
     builder: (_) => AlertDialog(
-      title: Text(context.tr('level_adjusted')),
+      title:   Text(context.tr('level_adjusted')),
       content: Text(
         context.tp('new_level_info', {
           'unit': p.unitId,
