@@ -52,3 +52,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Strava credentials – never commit the real file, only the .example template
+strava.env.json
