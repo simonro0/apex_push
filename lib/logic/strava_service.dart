@@ -1,8 +1,9 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/workout.dart';
@@ -26,8 +27,12 @@ class StravaCancelled extends StravaResult {}
 
 /// Manages Strava OAuth2 authentication and activity export.
 ///
-/// Tokens are stored in [FlutterSecureStorage] and refreshed automatically
-/// before any API call if the access token has expired.
+/// Uses [FlutterWebAuth2] for the authorization code flow — this avoids the
+/// AppAuth-Android task-affinity issue where [AuthorizationManagementActivity]
+/// gets killed while Chrome is open, causing the callback to be lost.
+///
+/// Token exchange and refresh are done via plain HTTP POSTs.
+/// Tokens are stored in [FlutterSecureStorage].
 ///
 /// Usage:
 ///   await StravaService.instance.connect();          // OAuth2 flow
@@ -42,8 +47,7 @@ class StravaService {
   static const _keyRefreshToken = 'strava_refresh_token';
   static const _keyExpiresAt    = 'strava_token_expires_at'; // Unix seconds
 
-  final _appAuth  = const FlutterAppAuth();
-  final _storage  = const FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage();
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -51,43 +55,66 @@ class StravaService {
   Future<bool> get isConnected async =>
       (await _storage.read(key: _keyAccessToken)) != null;
 
-  /// Runs the OAuth2 authorization code flow (opens browser / Strava app).
+  /// Runs the OAuth2 authorization code flow (opens browser).
   ///
-  /// Returns null on success, or an error message string on failure.
-  /// Returns 'cancelled' if the user aborted the flow themselves.
+  /// Returns null on success, or an error string on failure.
+  /// Returns 'cancelled' if the user closed the browser.
   Future<String?> connect() async {
     if (!StravaConfig.isConfigured) {
       debugPrint('[Strava] connect() aborted: isConfigured=false '
-          '(clientId="${StravaConfig.clientId}", run with --dart-define-from-file=strava.env.json)');
+          '(run with --dart-define-from-file=strava.env.json)');
       return 'not_configured';
     }
-    debugPrint('[Strava] starting OAuth2 flow — clientId=${StravaConfig.clientId}, '
+
+    final state  = _generateState();
+    final authUri = Uri.parse(StravaConfig.authorizationEndpoint).replace(
+      queryParameters: {
+        'client_id':     StravaConfig.clientId,
+        'redirect_uri':  StravaConfig.redirectUri,
+        'response_type': 'code',
+        'scope':         StravaConfig.scopes.join(','),
+        'state':         state,
+      },
+    );
+
+    debugPrint('[Strava] starting OAuth2 — clientId=${StravaConfig.clientId}, '
         'redirectUri=${StravaConfig.redirectUri}');
+
     try {
-      final result = await _appAuth.authorizeAndExchangeCode(
-        AuthorizationTokenRequest(
-          StravaConfig.clientId,
-          StravaConfig.redirectUri,
-          clientSecret: StravaConfig.clientSecret,
-          serviceConfiguration: AuthorizationServiceConfiguration(
-            authorizationEndpoint: StravaConfig.authorizationEndpoint,
-            tokenEndpoint:         StravaConfig.tokenEndpoint,
-          ),
-          scopes: StravaConfig.scopes,
-        ),
+      final resultUri = await FlutterWebAuth2.authenticate(
+        url:               authUri.toString(),
+        callbackUrlScheme: 'apexpush',
       );
-      await _storeTokens(result);
-      debugPrint('[Strava] connect() success');
-      return null; // success
+
+      final params = Uri.parse(resultUri).queryParameters;
+
+      if (params['state'] != state) {
+        debugPrint('[Strava] state mismatch — possible CSRF');
+        return 'state_mismatch';
+      }
+
+      final error = params['error'];
+      if (error != null) {
+        debugPrint('[Strava] auth error from Strava: $error');
+        return error;
+      }
+
+      final code = params['code'];
+      if (code == null) {
+        debugPrint('[Strava] no code in callback: $resultUri');
+        return 'no_code';
+      }
+
+      return await _exchangeCode(code);
     } catch (e, st) {
       debugPrint('[Strava] connect() error: $e');
       debugPrintStack(stackTrace: st, label: '[Strava]');
-      // PlatformException with code 'user_cancelled_or_closed_window' = user aborted.
       final msg = e.toString();
-      if (msg.contains('cancel') || msg.contains('dismiss') || msg.contains('closed')) {
+      if (msg.contains('cancel') || msg.contains('dismiss') || msg.contains('closed') ||
+          msg.contains('UserCancelled')) {
         return 'cancelled';
       }
-      return msg; // full error for snackbar display
+      return msg;
     }
   }
 
@@ -99,10 +126,6 @@ class StravaService {
   }
 
   /// Creates a manual Strava activity for [workout].
-  ///
-  /// [splits] contains per-set rep counts for structured training;
-  /// empty for free training.
-  /// [locale] controls the description language ('de' or 'en').
   Future<StravaResult> exportActivity({
     required Workout   workout,
     required List<int> splits,
@@ -113,8 +136,7 @@ class StravaService {
 
     final name        = _activityName(workout, locale);
     final description = _description(workout, splits, locale);
-    // Strava expects local datetime in ISO-8601 without ms (Z suffix optional).
-    final startDate = _iso8601(workout.date);
+    final startDate   = _iso8601(workout.date);
 
     try {
       final response = await http.post(
@@ -136,13 +158,10 @@ class StravaService {
         final id = jsonDecode(response.body)['id'];
         return StravaSuccess('https://www.strava.com/activities/$id');
       }
-
-      // 401 → token may have been revoked on Strava's side.
       if (response.statusCode == 401) {
         await disconnect();
         return StravaError('unauthorized');
       }
-
       return StravaError('http_${response.statusCode}');
     } catch (e) {
       return StravaError('network_error');
@@ -151,21 +170,16 @@ class StravaService {
 
   // ── Token management ───────────────────────────────────────────────────────
 
-  /// Returns a valid access token, refreshing if necessary.
-  /// Returns null if not connected or refresh fails.
   Future<String?> _validToken() async {
     final accessToken  = await _storage.read(key: _keyAccessToken);
     final expiresAtStr = await _storage.read(key: _keyExpiresAt);
 
     if (accessToken == null) return null;
 
-    // Refresh if token expires within the next 5 minutes.
     final expiresAt = int.tryParse(expiresAtStr ?? '') ?? 0;
     final nowSecs   = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-    if (nowSecs < expiresAt - 300) {
-      return accessToken; // still valid
-    }
+    if (nowSecs < expiresAt - 300) return accessToken; // still valid
 
     return _refreshToken();
   }
@@ -176,38 +190,90 @@ class StravaService {
     if (!StravaConfig.isConfigured) return null;
 
     try {
-      final result = await _appAuth.token(
-        TokenRequest(
-          StravaConfig.clientId,
-          StravaConfig.redirectUri,
-          clientSecret: StravaConfig.clientSecret,
-          refreshToken: refreshToken,
-          grantType:    'refresh_token',
-          serviceConfiguration: AuthorizationServiceConfiguration(
-            authorizationEndpoint: StravaConfig.authorizationEndpoint,
-            tokenEndpoint:         StravaConfig.tokenEndpoint,
-          ),
-        ),
+      final response = await http.post(
+        Uri.parse(StravaConfig.tokenEndpoint),
+        body: {
+          'client_id':     StravaConfig.clientId,
+          'client_secret': StravaConfig.clientSecret,
+          'refresh_token': refreshToken,
+          'grant_type':    'refresh_token',
+        },
       );
-      await _storeTokens(result);
-      return result.accessToken;
+
+      if (response.statusCode != 200) {
+        debugPrint('[Strava] token refresh failed: ${response.statusCode}');
+        await disconnect();
+        return null;
+      }
+
+      final json        = jsonDecode(response.body) as Map<String, dynamic>;
+      final accessToken = json['access_token'] as String;
+      await _storeTokens(
+        accessToken:  accessToken,
+        refreshToken: json['refresh_token'] as String,
+        expiresAt:    json['expires_at'] as int,
+      );
+      return accessToken;
     } catch (e) {
-      // Refresh failed (e.g. user revoked access on Strava).
-      debugPrint('[Strava] token refresh failed: $e');
+      debugPrint('[Strava] token refresh error: $e');
       await disconnect();
       return null;
     }
   }
 
-  Future<void> _storeTokens(TokenResponse result) async {
-    final expires = result.accessTokenExpirationDateTime
-        ?.millisecondsSinceEpoch ?? 0;
-    await _storage.write(key: _keyAccessToken,  value: result.accessToken);
-    await _storage.write(key: _keyRefreshToken, value: result.refreshToken);
-    await _storage.write(key: _keyExpiresAt,    value: '${expires ~/ 1000}');
+  /// Exchanges an authorization code for access + refresh tokens.
+  Future<String?> _exchangeCode(String code) async {
+    debugPrint('[Strava] exchanging auth code for tokens');
+    try {
+      final response = await http.post(
+        Uri.parse(StravaConfig.tokenEndpoint),
+        body: {
+          'client_id':     StravaConfig.clientId,
+          'client_secret': StravaConfig.clientSecret,
+          'code':          code,
+          'grant_type':    'authorization_code',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('[Strava] token exchange failed: '
+            '${response.statusCode} ${response.body}');
+        return 'token_exchange_${response.statusCode}';
+      }
+
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      await _storeTokens(
+        accessToken:  json['access_token'] as String,
+        refreshToken: json['refresh_token'] as String,
+        expiresAt:    json['expires_at'] as int,
+      );
+      debugPrint('[Strava] connect() success');
+      return null; // success
+    } catch (e) {
+      debugPrint('[Strava] token exchange error: $e');
+      return e.toString();
+    }
+  }
+
+  Future<void> _storeTokens({
+    required String accessToken,
+    required String refreshToken,
+    required int    expiresAt,   // Unix seconds
+  }) async {
+    await _storage.write(key: _keyAccessToken,  value: accessToken);
+    await _storage.write(key: _keyRefreshToken, value: refreshToken);
+    await _storage.write(key: _keyExpiresAt,    value: '$expiresAt');
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+
+  /// Generates a random state string for CSRF protection.
+  String _generateState() {
+    const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final rng = Random.secure();
+    return List.generate(32, (_) => chars[rng.nextInt(chars.length)]).join();
+  }
 
   String _activityName(Workout workout, String locale) {
     if (workout.isFreeTraining) {

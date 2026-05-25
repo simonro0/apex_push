@@ -51,7 +51,7 @@ dependencies:
   url_launcher: any
   intl: any
   wakelock_plus: any
-  flutter_appauth: any
+  flutter_web_auth_2: any
   http: any
   flutter_secure_storage: any
 
