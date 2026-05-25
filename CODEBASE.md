@@ -525,6 +525,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | F3 | Wochenübersicht                | ✅ | Streak (1-Tag-Toleranz), Volumen- und Tempo-Vergleich zur Vorwoche          |
 | F4 | Share-Feature (Phase 1)        | ✅ | Share-Karte via RepaintBoundary → PNG → share_plus in SessionDetailScreen    |
 | F4 | Strava-Integration (Phase 2)   | ✅ | OAuth2 via flutter_web_auth_2 (löst AppAuth-Task-Affinity-Problem), TCX-Upload (`POST /v3/uploads`) → aufgezeichnete Aktivität, Token-Refresh, reichhaltige Emoji-Beschreibung, kombiniertes PNG-Teilen via System-Share |
+| F5 | Strava-Übungen (Phase 3)       | 💡 | Strava zeigt in der UI neuerdings Übungen (Liegestütz, Sets, Wdh.) bei Krafttraining-Aktivitäten. **Strava API v3 exponiert dafür keinen dokumentierten Endpoint** — die Funktion ist in der UI neu und nicht via REST setzbar. Einzig möglicher Weg: **FIT-Datei-Upload** statt TCX. FIT (Garmins Binärformat) unterstützt `SET`-Messages mit Übungstyp (`PUSH_UP`), Wdh. und Dauer pro Satz nativ; Strava importiert diese dann korrekt. Aufwand: ~300–400 Zeilen Dart (Binär-Encoding, CRC-16), kein zusätzliches Package nötig. |
 
 ### Bekannte Bugs / Verbesserungsbedarf
 
