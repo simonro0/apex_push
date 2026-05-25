@@ -125,7 +125,12 @@ class StravaService {
     await _storage.delete(key: _keyExpiresAt);
   }
 
-  /// Creates a manual Strava activity for [workout].
+  /// Uploads [workout] to Strava as a recorded TCX activity.
+  ///
+  /// Uses `POST /v3/uploads` (multipart) so the activity is treated as a
+  /// GPS/recorded activity rather than a manual one.  Polls
+  /// `GET /v3/uploads/{id}` until Strava processes the file and returns an
+  /// `activity_id`, then returns the activity URL.
   Future<StravaResult> exportActivity({
     required Workout   workout,
     required List<int> splits,
@@ -136,36 +141,118 @@ class StravaService {
 
     final name        = _activityName(workout, locale);
     final description = _description(workout, splits, locale);
-    final startDate   = _iso8601(workout.date);
+    final tcxBytes    = utf8.encode(_buildTcx(workout));
 
     try {
-      final response = await http.post(
-        Uri.parse('${StravaConfig.apiBase}/activities'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type':  'application/x-www-form-urlencoded',
-        },
-        body: {
-          'name':             name,
-          'type':             'WeightTraining',
-          'start_date_local': startDate,
-          'elapsed_time':     '${workout.durationSeconds}',
-          'description':      description,
-        },
-      );
+      // ── Upload TCX file ─────────────────────────────────────────────────
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${StravaConfig.apiBase}/uploads'),
+      )
+        ..headers['Authorization'] = 'Bearer $token'
+        ..fields['data_type']      = 'tcx'
+        ..fields['activity_type']  = 'weight_training'
+        ..fields['name']           = name
+        ..fields['description']    = description
+        ..files.add(http.MultipartFile.fromBytes(
+          'file',
+          tcxBytes,
+          filename: 'apex_workout.tcx',
+        ));
 
-      if (response.statusCode == 201) {
-        final id = jsonDecode(response.body)['id'];
-        return StravaSuccess('https://www.strava.com/activities/$id');
-      }
-      if (response.statusCode == 401) {
+      final uploadResp = await request.send();
+      final uploadBody = await uploadResp.stream.bytesToString();
+
+      if (uploadResp.statusCode == 401) {
         await disconnect();
         return StravaError('unauthorized');
       }
-      return StravaError('http_${response.statusCode}');
+      if (uploadResp.statusCode != 201) {
+        debugPrint('[Strava] upload failed ${uploadResp.statusCode}: $uploadBody');
+        return StravaError('http_${uploadResp.statusCode}');
+      }
+
+      final uploadJson = jsonDecode(uploadBody) as Map<String, dynamic>;
+      final uploadId   = uploadJson['id'] as int;
+
+      // ── Poll until processed ────────────────────────────────────────────
+      return await _pollUpload(uploadId, token);
     } catch (e) {
+      debugPrint('[Strava] exportActivity error: $e');
       return StravaError('network_error');
     }
+  }
+
+  // ── Upload polling ─────────────────────────────────────────────────────────
+
+  /// Polls `GET /v3/uploads/{id}` until Strava returns an `activity_id` or
+  /// reports an error.  Tries up to 12 times with 3-second gaps (~36 s total).
+  Future<StravaResult> _pollUpload(int uploadId, String token) async {
+    for (var i = 0; i < 12; i++) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      try {
+        final resp = await http.get(
+          Uri.parse('${StravaConfig.apiBase}/uploads/$uploadId'),
+          headers: {'Authorization': 'Bearer $token'},
+        );
+
+        if (resp.statusCode == 401) {
+          await disconnect();
+          return StravaError('unauthorized');
+        }
+        if (resp.statusCode != 200) {
+          return StravaError('http_${resp.statusCode}');
+        }
+
+        final json       = jsonDecode(resp.body) as Map<String, dynamic>;
+        final error      = json['error'] as String?;
+        final activityId = json['activity_id'];
+
+        if (error != null && error.isNotEmpty) {
+          debugPrint('[Strava] upload error from server: $error');
+          return StravaError('upload_$error');
+        }
+        if (activityId != null) {
+          return StravaSuccess('https://www.strava.com/activities/$activityId');
+        }
+        // Still processing — continue polling
+      } catch (e) {
+        debugPrint('[Strava] poll error: $e');
+        return StravaError('network_error');
+      }
+    }
+    return StravaError('upload_timeout');
+  }
+
+  // ── TCX builder ────────────────────────────────────────────────────────────
+
+  /// Builds a minimal TCX XML string that Strava accepts.
+  String _buildTcx(Workout workout) {
+    final startUtc = workout.date.toUtc();
+    final endUtc   = startUtc.add(Duration(seconds: workout.durationSeconds));
+    final calories = (workout.count * 0.5).round();
+
+    String ts(DateTime dt) => dt.toIso8601String().replaceFirst(RegExp(r'\.\d+'), '');
+
+    return '''<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
+  <Activities>
+    <Activity Sport="Other">
+      <Id>${ts(startUtc)}</Id>
+      <Lap StartTime="${ts(startUtc)}">
+        <TotalTimeSeconds>${workout.durationSeconds}</TotalTimeSeconds>
+        <DistanceMeters>0</DistanceMeters>
+        <Calories>$calories</Calories>
+        <Intensity>Active</Intensity>
+        <TriggerMethod>Manual</TriggerMethod>
+        <Track>
+          <Trackpoint><Time>${ts(startUtc)}</Time></Trackpoint>
+          <Trackpoint><Time>${ts(endUtc)}</Time></Trackpoint>
+        </Track>
+      </Lap>
+    </Activity>
+  </Activities>
+</TrainingCenterDatabase>''';
   }
 
   // ── Token management ───────────────────────────────────────────────────────
@@ -337,14 +424,4 @@ class StravaService {
     }
   }
 
-  /// Formats [dt] as ISO 8601 without milliseconds, e.g. "2026-05-23T18:30:00".
-  static String _iso8601(DateTime dt) {
-    final y  = dt.year.toString().padLeft(4, '0');
-    final mo = dt.month.toString().padLeft(2, '0');
-    final d  = dt.day.toString().padLeft(2, '0');
-    final h  = dt.hour.toString().padLeft(2, '0');
-    final mi = dt.minute.toString().padLeft(2, '0');
-    final s  = dt.second.toString().padLeft(2, '0');
-    return '$y-$mo-${d}T$h:$mi:$s';
-  }
 }

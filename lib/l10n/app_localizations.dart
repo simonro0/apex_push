@@ -212,6 +212,7 @@ class AppLocalizations {
       'strava_error_network':     'Netzwerkfehler. Bitte prüfe deine Verbindung.',
       'strava_error_generic':     'Fehler beim Exportieren ({code}).',
       'strava_cancelled':         'Verbindung abgebrochen.',
+      'strava_share_image':       'BILD TEILEN',
     },
     'en': {
       // ── App / Dashboard ──────────────────────────────────────────────────
@@ -416,6 +417,7 @@ class AppLocalizations {
       'strava_error_network':     'Network error. Please check your connection.',
       'strava_error_generic':     'Export failed ({code}).',
       'strava_cancelled':         'Connection cancelled.',
+      'strava_share_image':       'SHARE IMAGE',
     },
   };
 

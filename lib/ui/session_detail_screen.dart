@@ -909,6 +909,10 @@ class _ShareSheetState extends State<_ShareSheet> {
   }
 
   Future<void> _exportToStrava() async {
+    // Capture the share-card PNG while the widget is still in the tree,
+    // before we close the bottom sheet or do any async work.
+    final pngPath = await ShareService.captureToFile(widget.shareCardKey);
+
     setState(() => _stravaLoading = true);
 
     // Check if connected; if not, trigger connect flow first.
@@ -944,6 +948,7 @@ class _ShareSheetState extends State<_ShareSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.tr('strava_success')),
+            // Primary action: open activity on Strava
             action: SnackBarAction(
               label: context.tr('strava_view'),
               onPressed: () async {
@@ -952,14 +957,28 @@ class _ShareSheetState extends State<_ShareSheet> {
                 } catch (_) {}
               },
             ),
-            duration: const Duration(seconds: 6),
+            duration: const Duration(seconds: 10),
           ),
         );
+        // Offer to share the PNG separately (system share sheet).
+        if (pngPath != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.tr('strava_success')),
+              action: SnackBarAction(
+                label: context.tr('strava_share_image'),
+                onPressed: () => ShareService.shareFile(pngPath),
+              ),
+              duration: const Duration(seconds: 10),
+            ),
+          );
+        }
       case StravaError(:final message):
         final text = switch (message) {
-          'unauthorized'  => context.tr('strava_error_unauthorized'),
-          'network_error' => context.tr('strava_error_network'),
-          _               => context.tp('strava_error_generic', {'code': message}),
+          'unauthorized'   => context.tr('strava_error_unauthorized'),
+          'network_error'  => context.tr('strava_error_network'),
+          'upload_timeout' => context.tp('strava_error_generic', {'code': 'timeout'}),
+          _                => context.tp('strava_error_generic', {'code': message}),
         };
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -1,6 +1,6 @@
 # ApexPush – Codebase-Dokumentation
 
-> Zuletzt aktualisiert: 2026-05-25 (Strava-Integration vollständig: flutter_web_auth_2, Share-Card-Verbesserungen, reichhaltige Aktivitätsbeschreibung)  
+> Zuletzt aktualisiert: 2026-05-25 (Strava: TCX-Upload statt manueller Aktivität + kombiniertes Bild-Teilen via System-Share)  
 > Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
@@ -288,10 +288,15 @@ Alle Play-Methoden nutzen `p.play(BytesSource(_bytes))` (kein `seek+resume`) —
 
 **`ShareService`** (`lib/logic/share_service.dart`)
 
-Statische Hilfsklasse zum Teilen eines Workout-Bildes:
-1. `captureAndShare(GlobalKey repaintKey)` — rendert den an `repaintKey` gebundenen `RepaintBoundary` mit 3× Pixelratio
-2. Speichert als PNG in `getTemporaryDirectory()`
-3. Öffnet System-Share-Dialog via `SharePlus.instance.share(ShareParams(files: [XFile(path)]))`
+Statische Hilfsklasse zum Erfassen und Teilen eines Workout-Bildes:
+
+| Methode                                | Beschreibung                                                                                 |
+|----------------------------------------|----------------------------------------------------------------------------------------------|
+| `captureToFile(GlobalKey repaintKey)`  | Rendert `RepaintBoundary` (3× Pixelratio) → PNG in Temp-Dir; gibt Pfad zurück oder `null`   |
+| `shareFile(String path)`               | Öffnet System-Share-Dialog für eine bereits gespeicherte Datei                               |
+| `captureAndShare(GlobalKey repaintKey)`| Kombiniert beide Schritte (Capture + Share) in einem Aufruf                                  |
+
+`captureToFile` muss aufgerufen werden **bevor** das Widget aus dem Tree entfernt wird (z.B. bevor ein Bottom Sheet geschlossen wird).
 
 **`StravaService`** (`lib/logic/strava_service.dart`)
 
@@ -302,7 +307,19 @@ Singleton für Strava OAuth2 und Aktivitäts-Export. Credentials werden **nicht*
 | `isConnected`            | Async getter — true wenn Access-Token in SecureStorage vorhanden            |
 | `connect()`              | OAuth2-Flow via `flutter_web_auth_2` (Custom Tab) + manueller Token-Exchange per HTTP POST |
 | `disconnect()`           | Löscht alle gespeicherten Tokens                                             |
-| `exportActivity(...)`    | `POST /v3/activities` — gibt `StravaSuccess(url)` / `StravaError` / `StravaCancelled` zurück |
+| `exportActivity(...)`    | Lädt Aktivität als TCX-Datei hoch (`POST /v3/uploads`, Multipart) + pollt `GET /v3/uploads/{id}` bis `activity_id` gesetzt ist; gibt `StravaSuccess(url)` / `StravaError` zurück |
+
+**TCX-Upload-Flow:**
+1. `_buildTcx(workout)` erzeugt minimales TCX-XML mit Start-/End-Trackpoint und Kalorien
+2. `POST /v3/uploads` mit `data_type=tcx`, `activity_type=weight_training`, Name, Beschreibung
+3. `_pollUpload(uploadId, token)` pollt bis zu 12× alle 3 s (~36 s) bis `activity_id` nicht null → `StravaSuccess`
+4. Fehler (Strava-eigene Fehlermeldung oder Timeout) → `StravaError`
+
+Vorteil gegenüber `POST /v3/activities`: TCX-Upload erzeugt eine **aufgezeichnete Aktivität** (kein „Manual Entry"-Badge), die auf Strava vollwertig ist.
+
+**Kombiniertes Bild-Teilen (`_exportToStrava` in `SessionDetailScreen`):**
+- PNG-Capture via `ShareService.captureToFile()` **vor** dem Schließen des Sheets
+- Nach erfolgreichem Upload: zwei aufeinanderfolgende Snackbars — „ANSEHEN" (Strava-URL) + „BILD TEILEN" (öffnet System-Share für das PNG)
 
 Token-Lebenszyklus: Tokens in `FlutterSecureStorage` (AES-verschlüsselt), automatischer Refresh 5 min vor Ablauf. Bei 401-Response: automatisches Logout.
 
@@ -488,7 +505,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | `url_launcher`               | Links im About-Screen                            |
 | `wakelock_plus`              | Display dauerhaft an während des Trainings       |
 | `flutter_web_auth_2`         | OAuth2 Custom Tab + Callback-Handling (Strava)   |
-| `http`                       | REST-API-Aufrufe (Strava POST /v3/activities)    |
+| `http`                       | REST-API-Aufrufe (Strava TCX-Upload, Token-Exchange, Upload-Polling) |
 | `flutter_secure_storage`     | AES-verschlüsselte Token-Ablage (Strava)         |
 
 ---
@@ -503,7 +520,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | F2 | Practice-Flow mit Empfehlung   | ✅ | Level-Empfehlung nach freiem Training implementiert                          |
 | F3 | Wochenübersicht                | ✅ | Streak (1-Tag-Toleranz), Volumen- und Tempo-Vergleich zur Vorwoche          |
 | F4 | Share-Feature (Phase 1)        | ✅ | Share-Karte via RepaintBoundary → PNG → share_plus in SessionDetailScreen    |
-| F4 | Strava-Integration (Phase 2)   | ✅ | OAuth2 via flutter_web_auth_2 (löst AppAuth-Task-Affinity-Problem), POST /v3/activities, Token-Refresh, reichhaltige Emoji-Beschreibung |
+| F4 | Strava-Integration (Phase 2)   | ✅ | OAuth2 via flutter_web_auth_2 (löst AppAuth-Task-Affinity-Problem), TCX-Upload (`POST /v3/uploads`) → aufgezeichnete Aktivität, Token-Refresh, reichhaltige Emoji-Beschreibung, kombiniertes PNG-Teilen via System-Share |
 
 ### Bekannte Bugs / Verbesserungsbedarf
 
