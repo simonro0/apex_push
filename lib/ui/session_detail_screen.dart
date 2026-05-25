@@ -849,6 +849,7 @@ class _ShareSheetState extends State<_ShareSheet> {
               workout:       widget.workout,
               formattedDate: widget.date,
               subLabel:      widget.subLabel,
+              splits:        widget.splits,
             ),
           ),
           const SizedBox(height: 20),
