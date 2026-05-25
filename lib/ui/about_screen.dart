@@ -100,6 +100,9 @@ class _AboutScreenState extends State<AboutScreen> {
           Text(context.t('donation_text'), style: TextStyle(color: hintColor)),
           const SizedBox(height: 16),
           OutlinedButton.icon(
+            style:     OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
             icon:      const Icon(Icons.favorite_outline),
             label:     Text(context.t('donate')),
             onPressed: _openDonation,

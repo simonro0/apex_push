@@ -127,6 +127,15 @@ class WorkoutProvider with ChangeNotifier {
     _countRep();
   }
 
+  /// Removes the last recorded rep from the current session.
+  /// No-op when no reps have been counted yet.
+  void undoLastRep() {
+    if (_currentSessionCount == 0) return;
+    _currentSessionCount--;
+    if (_repBuffer.isNotEmpty) _repBuffer.removeLast();
+    notifyListeners();
+  }
+
   void _countRep() {
     final result = _sensors.verifyPushUp();
     _lastRepVerified = result.verified;

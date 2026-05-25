@@ -102,7 +102,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF7C6DFF),
                     foregroundColor: Colors.white,
-                    padding:         const EdgeInsets.symmetric(vertical: 14),
+                    padding:         const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
@@ -232,7 +232,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
           child: ElevatedButton(
-            style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
+            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18)),
             onPressed: () => Navigator.pop(context),
             child: Text(
               context.t('continue_upper'),

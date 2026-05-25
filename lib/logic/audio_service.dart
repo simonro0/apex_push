@@ -5,11 +5,12 @@ import 'package:flutter/foundation.dart';
 
 /// Singleton audio service.
 ///
-/// All WAV bytes are synthesised once in [init] and stored as instance
-/// fields.  Every play call uses [AudioPlayer.play] with a fresh
-/// [BytesSource] so the player works reliably from any state (stopped,
-/// paused, or completed) without a separate seek step.  The round-robin
-/// rep pool has 5 slots to handle rapid multi-tap sequences.
+/// WAV bytes are synthesised once in [init] and each [AudioPlayer] source is
+/// pre-loaded with [AudioPlayer.setSource] so that subsequent play calls only
+/// need [AudioPlayer.seek] + [AudioPlayer.resume] — avoiding the
+/// setSource/prepare round-trip (~50–200 ms on Android) that causes sounds to
+/// be skipped during rapid rep sequences.  [ReleaseMode.stop] keeps the source
+/// loaded after playback completes so the seek+resume pattern always works.
 class AudioService {
   AudioService._();
   static final AudioService instance = AudioService._();
@@ -40,7 +41,8 @@ class AudioService {
   late final AudioPlayer _targetPlayer;
   late final AudioPlayer _milestonePlayer;
 
-  // Pre-synthesised bytes kept as instance fields for fast BytesSource play.
+  // Pre-synthesised bytes. Sources are loaded once in init(); play calls only
+  // seek to zero and resume — no per-call setSource overhead.
   late final Uint8List _repBytes;
   late final Uint8List _countdownBytes;
   late final Uint8List _restEndBytes;
@@ -59,7 +61,7 @@ class AudioService {
     _milestoneBytes = _wav(hz: 1100, ms: 150, vol: 0.90);
 
     // On Android, request a transient audio focus that ducks other audio
-    // rather than taking full focus.  This eliminates the audio focus
+    // rather than taking full focus.  This eliminates the audio-focus
     // handshake delay that causes audible lag on Pixel devices.
     final audioCtx = defaultTargetPlatform == TargetPlatform.android
         ? AudioContext(
@@ -78,6 +80,7 @@ class AudioService {
       await p.setAudioContext(audioCtx);
       await p.setReleaseMode(ReleaseMode.stop);
       await p.setVolume(_volume);
+      await p.setSource(BytesSource(_repBytes));
       _repPool.add(p);
     }
 
@@ -86,21 +89,25 @@ class AudioService {
     await _countdownPlayer.setAudioContext(audioCtx);
     await _countdownPlayer.setReleaseMode(ReleaseMode.stop);
     await _countdownPlayer.setVolume(_volume);
+    await _countdownPlayer.setSource(BytesSource(_countdownBytes));
 
     _restEndPlayer = AudioPlayer();
     await _restEndPlayer.setAudioContext(audioCtx);
     await _restEndPlayer.setReleaseMode(ReleaseMode.stop);
     await _restEndPlayer.setVolume(_volume);
+    await _restEndPlayer.setSource(BytesSource(_restEndBytes));
 
     _targetPlayer = AudioPlayer();
     await _targetPlayer.setAudioContext(audioCtx);
     await _targetPlayer.setReleaseMode(ReleaseMode.stop);
     await _targetPlayer.setVolume(_volume);
+    await _targetPlayer.setSource(BytesSource(_targetBytes));
 
     _milestonePlayer = AudioPlayer();
     await _milestonePlayer.setAudioContext(audioCtx);
     await _milestonePlayer.setReleaseMode(ReleaseMode.stop);
     await _milestonePlayer.setVolume(_volume);
+    await _milestonePlayer.setSource(BytesSource(_milestoneBytes));
 
     _initialized = true;
   }
@@ -118,37 +125,47 @@ class AudioService {
   }
 
   // ── Play API ───────────────────────────────────────────────────────────────
+  //
+  // Each method seeks to the start and resumes.  Because the source is already
+  // loaded (setSource in init) and ReleaseMode.stop keeps it loaded after
+  // completion, seek+resume never triggers a new setSource/prepare cycle on
+  // Android — the latency is negligible and no sounds are dropped.
 
   /// Short click on each rep count.
   void playRepTick() {
     if (!_initialized) return;
     final p = _repPool[_repIdx];
     _repIdx = (_repIdx + 1) % _repPool.length;
-    p.play(BytesSource(_repBytes));
+    p.seek(Duration.zero);
+    p.resume();
   }
 
   /// Intense tone played on every 10th rep (10, 20, 30, …).
   void playMilestone() {
     if (!_initialized) return;
-    _milestonePlayer.play(BytesSource(_milestoneBytes));
+    _milestonePlayer.seek(Duration.zero);
+    _milestonePlayer.resume();
   }
 
   /// Played at 3 / 2 / 1 seconds remaining in rest.
   void playCountdown() {
     if (!_initialized) return;
-    _countdownPlayer.play(BytesSource(_countdownBytes));
+    _countdownPlayer.seek(Duration.zero);
+    _countdownPlayer.resume();
   }
 
   /// Played when rest ends and the next set begins.
   void playRestEnd() {
     if (!_initialized) return;
-    _restEndPlayer.play(BytesSource(_restEndBytes));
+    _restEndPlayer.seek(Duration.zero);
+    _restEndPlayer.resume();
   }
 
   /// Played once when the rep count first reaches the set target.
   void playTargetReached() {
     if (!_initialized) return;
-    _targetPlayer.play(BytesSource(_targetBytes));
+    _targetPlayer.seek(Duration.zero);
+    _targetPlayer.resume();
   }
 
   // ── WAV synthesis ──────────────────────────────────────────────────────────

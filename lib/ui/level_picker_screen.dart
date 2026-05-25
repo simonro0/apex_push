@@ -60,7 +60,7 @@ class _LevelPickerScreenState extends State<LevelPickerScreen> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(vertical: 18),
             ),
             onPressed: () => Navigator.pop(
               context,
