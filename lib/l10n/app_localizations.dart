@@ -213,6 +213,7 @@ class AppLocalizations {
       'strava_error_generic':     'Fehler beim Exportieren ({code}).',
       'strava_cancelled':         'Verbindung abgebrochen.',
       'strava_share_image':       'BILD TEILEN',
+      'strava_open_in_app':       'IN APP ÖFFNEN',
     },
     'en': {
       // ── App / Dashboard ──────────────────────────────────────────────────
@@ -418,6 +419,7 @@ class AppLocalizations {
       'strava_error_generic':     'Export failed ({code}).',
       'strava_cancelled':         'Connection cancelled.',
       'strava_share_image':       'SHARE IMAGE',
+      'strava_open_in_app':       'OPEN IN APP',
     },
   };
 

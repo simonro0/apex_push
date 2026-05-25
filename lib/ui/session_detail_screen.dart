@@ -945,15 +945,24 @@ class _ShareSheetState extends State<_ShareSheet> {
 
     switch (result) {
       case StravaSuccess(:final activityUrl):
+        // Extract the numeric activity ID from the URL so we can build
+        // a strava:// deep link for users who have the app installed.
+        final activityId = activityUrl.split('/').last;
+        final appUri     = Uri.parse('strava://activities/$activityId');
+        final hasApp     = await canLaunchUrl(appUri);
+        if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.tr('strava_success')),
-            // Primary action: open activity on Strava
             action: SnackBarAction(
-              label: context.tr('strava_view'),
+              // Deep-link into the Strava app when installed; fall back to web.
+              label: hasApp
+                  ? context.tr('strava_open_in_app')
+                  : context.tr('strava_view'),
               onPressed: () async {
                 try {
-                  await _launchUrl(Uri.parse(activityUrl));
+                  await _launchUrl(hasApp ? appUri : Uri.parse(activityUrl));
                 } catch (_) {}
               },
             ),

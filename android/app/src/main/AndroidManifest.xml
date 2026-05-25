@@ -60,5 +60,10 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Needed for canLaunchUrl('strava://...') on Android 11+ -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="strava"/>
+        </intent>
     </queries>
 </manifest>
