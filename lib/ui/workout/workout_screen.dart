@@ -442,7 +442,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white54,
                     side: const BorderSide(color: Colors.white24),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     minimumSize: const Size(double.infinity, 0),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
