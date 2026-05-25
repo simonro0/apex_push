@@ -82,31 +82,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         locale:        locale,
         shareCardKey:  _shareCardKey,
                 ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C6DFF),
-                    foregroundColor: Colors.white,
-                    padding:         const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  icon:    const Icon(Icons.share_outlined),
-                  label:   Text(ctx.t('share_btn')),
-                  onPressed: () async {
-                    // Capture while the card is still in the widget tree,
-                    // then close the sheet before opening the share dialog.
-                    await ShareService.captureAndShare(_shareCardKey);
-                    if (sheetCtx.mounted) Navigator.pop(sheetCtx);
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
+              );
   }
 
   Future<void> _loadRepDetails() async {
