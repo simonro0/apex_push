@@ -966,7 +966,7 @@ class _ShareSheetState extends State<_ShareSheet> {
                 } catch (_) {}
               },
             ),
-            duration: const Duration(seconds: 10),
+            duration: const Duration(seconds: 5),
           ),
         );
         // Offer to share the PNG separately (system share sheet).
@@ -978,7 +978,7 @@ class _ShareSheetState extends State<_ShareSheet> {
                 label: context.tr('strava_share_image'),
                 onPressed: () => ShareService.shareFile(pngPath),
               ),
-              duration: const Duration(seconds: 10),
+              duration: const Duration(seconds: 5),
             ),
           );
         }
