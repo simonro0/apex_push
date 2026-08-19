@@ -32,9 +32,9 @@ class CsvService {
 
   /// Returns imported workouts, or an empty list on cancel / parse error.
   static Future<List<Workout>> importFromCsv() async {
-    FilePickerResult? result;
+    PlatformFile? file;
     try {
-      result = await FilePicker.pickFiles(
+      file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['csv'],
       );
@@ -42,10 +42,10 @@ class CsvService {
       return [];
     }
 
-    if (result == null || result.files.single.path == null) return [];
+    if (file == null || file.path == null) return [];
 
     try {
-      final input = await File(result.files.single.path!).readAsString();
+      final input = await File(file.path!).readAsString();
       final rows = Csv().decode(input);
       if (rows.length < 2) return [];
 

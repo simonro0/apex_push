@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "app.MultiSync.apex_push"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

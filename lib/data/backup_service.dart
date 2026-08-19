@@ -25,8 +25,8 @@ class BackupService {
   // ── Export ─────────────────────────────────────────────────────────────────
 
   /// Opens the system "Save file" dialog (SAF) and writes the backup there.
-  /// Returns the saved path, or null if the user cancelled.
-  static Future<String?> exportBackup(SettingsProvider settings) async {
+  /// Returns the saved Uri, or null if the user cancelled.
+  static Future<Uri?> exportBackup(SettingsProvider settings) async {
     final workouts   = await DatabaseHelper.instance.readAllWorkouts();
     final repDetails = await DatabaseHelper.instance.getAllRepDetails();
 
@@ -56,27 +56,24 @@ class BackupService {
   /// Returns (workouts: n, repDetails: m, settings: bool),
   /// or (workouts: -1, ...) when user cancelled the picker.
   static Future<BackupResult> importBackup(SettingsProvider settings) async {
-    FilePickerResult? result;
+    PlatformFile? file;
     try {
-      // withData: true → file_picker reads via ContentResolver, avoiding
-      // content:// URI path issues that cause silent import failures on Android.
-      result = await FilePicker.pickFiles(
-        type: FileType.any,
-        withData: true,
-      );
+      file = await FilePicker.pickFile(type: FileType.any);
     } catch (_) {
       return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false, conflictAborted: false, skipped: 0);
     }
 
-    if (result == null) {
+    if (file == null) {
       return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false, conflictAborted: false, skipped: 0);
     }
 
-    final file = result.files.single;
-
-    // Prefer in-memory bytes from withData; fall back to path read.
-    final Uint8List? bytes = file.bytes ??
-        (file.path != null ? await File(file.path!).readAsBytes() : null);
+    // readAsBytes() uses ContentResolver on Android, avoiding content:// URI issues.
+    Uint8List? bytes;
+    try {
+      bytes = await file.readAsBytes();
+    } catch (_) {
+      bytes = file.path != null ? await File(file.path!).readAsBytes() : null;
+    }
 
     if (bytes == null) {
       return (workouts: -1, repDetails: 0, settings: false, checksumMismatch: false, conflictAborted: false, skipped: 0);

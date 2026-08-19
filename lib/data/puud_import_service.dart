@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
 import 'package:file_picker/file_picker.dart';
@@ -28,24 +29,24 @@ class PuudImportService {
   /// Opens a file picker, extracts and reads the .puud database.
   /// Returns the imported [PuudRecord] list, or null if the user cancelled.
   static Future<List<PuudRecord>?> importFromPuud() async {
-    FilePickerResult? result;
+    PlatformFile? file;
     try {
-      // withData: true → reads via ContentResolver, avoiding content:// URI
-      // path issues that cause silent import failures on Android.
-      result = await FilePicker.pickFiles(
+      file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['puud'],
-        withData: true,
       );
     } catch (_) {
       return null;
     }
-    if (result == null) return null;
+    if (file == null) return null;
 
-    final file = result.files.single;
-    // Prefer in-memory bytes from withData; fall back to path read.
-    final bytes = file.bytes ??
-        (file.path != null ? await File(file.path!).readAsBytes() : null);
+    // readAsBytes() uses ContentResolver on Android, avoiding content:// URI issues.
+    Uint8List? bytes;
+    try {
+      bytes = await file.readAsBytes();
+    } catch (_) {
+      bytes = file.path != null ? await File(file.path!).readAsBytes() : null;
+    }
     if (bytes == null) return null;
 
     final tmpDir = await getTemporaryDirectory();
