@@ -75,13 +75,14 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetCtx) => _ShareSheet(
-                  workout:       widget.workout,
-        date:          date,
-                  subLabel:      subLabel,
-        splits:        effectiveSplits,
-        locale:        locale,
-        shareCardKey:  _shareCardKey,
-                ),
+        workout:      widget.workout,
+        date:         date,
+        subLabel:     subLabel,
+        splits:       effectiveSplits,
+        repDetails:   _repDetails,
+        locale:       locale,
+        shareCardKey: _shareCardKey,
+      ),
               );
   }
 
@@ -802,18 +803,20 @@ class _MiniLineChart extends StatelessWidget {
 /// Bottom sheet with image-share and optional Strava export button.
 /// Extracted as a StatefulWidget so the Strava loading state is isolated.
 class _ShareSheet extends StatefulWidget {
-  final Workout    workout;
-  final String     date;
-  final String?    subLabel;
-  final List<int>  splits;
-  final String     locale;
-  final GlobalKey  shareCardKey;
+  final Workout        workout;
+  final String         date;
+  final String?        subLabel;
+  final List<int>      splits;
+  final List<RepDetail> repDetails;
+  final String         locale;
+  final GlobalKey      shareCardKey;
 
   const _ShareSheet({
     required this.workout,
     required this.date,
     required this.subLabel,
     required this.splits,
+    required this.repDetails,
     required this.locale,
     required this.shareCardKey,
   });
@@ -934,9 +937,10 @@ class _ShareSheetState extends State<_ShareSheet> {
     }
 
     final result = await StravaService.instance.exportActivity(
-      workout: widget.workout,
-      splits:  widget.splits,
-      locale:  widget.locale,
+      workout:    widget.workout,
+      splits:     widget.splits,
+      locale:     widget.locale,
+      repDetails: widget.repDetails,
     );
 
     if (!mounted) return;

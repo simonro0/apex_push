@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:http/http.dart' as http;
 
+import '../models/rep_detail.dart';
 import '../models/workout.dart';
 import 'strava_config.dart';
 
@@ -37,7 +38,7 @@ class StravaCancelled extends StravaResult {}
 /// Usage:
 ///   await StravaService.instance.connect();          // OAuth2 flow
 ///   await StravaService.instance.isConnected;        // check login state
-///   await StravaService.instance.exportActivity(...) // POST /v3/activities
+///   await StravaService.instance.exportActivity(...) // POST /v3/uploads (json)
 ///   await StravaService.instance.disconnect();       // clear tokens
 class StravaService {
   StravaService._();
@@ -125,39 +126,40 @@ class StravaService {
     await _storage.delete(key: _keyExpiresAt);
   }
 
-  /// Uploads [workout] to Strava as a recorded TCX activity.
+  /// Uploads [workout] to Strava as a JSON strength-training activity.
   ///
-  /// Uses `POST /v3/uploads` (multipart) so the activity is treated as a
-  /// GPS/recorded activity rather than a manual one.  Polls
-  /// `GET /v3/uploads/{id}` until Strava processes the file and returns an
-  /// `activity_id`, then returns the activity URL.
+  /// Uses `POST /v3/uploads` (multipart, data_type=json) with per-set exercise
+  /// details (PUSH_UP_GENERIC, reps, start_time derived from [repDetails]).
+  /// Polls `GET /v3/uploads/{id}` until Strava processes the file and returns
+  /// an `activity_id`, then returns the activity URL.
   Future<StravaResult> exportActivity({
-    required Workout   workout,
-    required List<int> splits,
-    required String    locale,
+    required Workout        workout,
+    required List<int>      splits,
+    required String         locale,
+    List<RepDetail>         repDetails = const [],
   }) async {
     final token = await _validToken();
     if (token == null) return StravaError('not_connected');
 
     final name        = _activityName(workout, locale);
     final description = _description(workout, splits, locale);
-    final tcxBytes    = utf8.encode(_buildTcx(workout));
+    final jsonBytes   = utf8.encode(_buildJson(workout, splits, repDetails));
 
     try {
-      // ── Upload TCX file ─────────────────────────────────────────────────
+      // ── Upload JSON file ────────────────────────────────────────────────
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('${StravaConfig.apiBase}/uploads'),
       )
         ..headers['Authorization'] = 'Bearer $token'
-        ..fields['data_type']   = 'tcx'
-        ..fields['sport_type']  = 'WeightTraining'
-        ..fields['name']        = name
+        ..fields['data_type']      = 'json'
+        ..fields['sport_type']     = 'WeightTraining'
+        ..fields['name']           = name
         ..fields['description']    = description
         ..files.add(http.MultipartFile.fromBytes(
           'file',
-          tcxBytes,
-          filename: 'apex_workout.tcx',
+          jsonBytes,
+          filename: 'apex_workout.json',
         ));
 
       final uploadResp = await request.send();
@@ -224,35 +226,73 @@ class StravaService {
     return StravaError('upload_timeout');
   }
 
-  // ── TCX builder ────────────────────────────────────────────────────────────
+  // ── JSON builder ───────────────────────────────────────────────────────────
 
-  /// Builds a minimal TCX XML string that Strava accepts.
-  String _buildTcx(Workout workout) {
-    final startUtc = workout.date.toUtc();
-    final endUtc   = startUtc.add(Duration(seconds: workout.durationSeconds));
-    final calories = (workout.count * 0.5).round();
+  /// Builds a Strava JSON v1.0 strength-training file with one set entry per
+  /// split.  Each set's start_time is derived from the first [RepDetail] in
+  /// that set; if [repDetails] is empty, start_times are spaced proportionally
+  /// across the workout duration.
+  String _buildJson(Workout workout, List<int> splits, List<RepDetail> repDetails) {
+    final startUtc    = workout.date.toUtc();
+    final utcOffsetS  = workout.date.timeZoneOffset.inSeconds;
+    final calories    = (workout.count * 0.5).round();
 
-    String ts(DateTime dt) => dt.toIso8601String().replaceFirst(RegExp(r'\.\d+'), '');
+    // Build a map: setIndex → timestamp of its first rep (ms since epoch).
+    final firstRepMs = <int, int>{};
+    for (final r in repDetails) {
+      if (!firstRepMs.containsKey(r.setIndex)) {
+        firstRepMs[r.setIndex] = r.timestampMs;
+      }
+    }
 
-    return '''<?xml version="1.0" encoding="UTF-8"?>
-<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">
-  <Activities>
-    <Activity Sport="Other">
-      <Id>${ts(startUtc)}</Id>
-      <Lap StartTime="${ts(startUtc)}">
-        <TotalTimeSeconds>${workout.durationSeconds}</TotalTimeSeconds>
-        <DistanceMeters>0</DistanceMeters>
-        <Calories>$calories</Calories>
-        <Intensity>Active</Intensity>
-        <TriggerMethod>Manual</TriggerMethod>
-        <Track>
-          <Trackpoint><Time>${ts(startUtc)}</Time></Trackpoint>
-          <Trackpoint><Time>${ts(endUtc)}</Time></Trackpoint>
-        </Track>
-      </Lap>
-    </Activity>
-  </Activities>
-</TrainingCenterDatabase>''';
+    // Per-set start times: use sensor data when available, else distribute
+    // the workout duration proportionally across sets.
+    // timestampMs is relative to session start — add to workout.date for UTC.
+    String setStartTime(int setIndex, int totalSets) {
+      if (firstRepMs.containsKey(setIndex)) {
+        return startUtc
+            .add(Duration(milliseconds: firstRepMs[setIndex]!))
+            .toIso8601String()
+            .replaceFirst(RegExp(r'\.\d+'), '');
+      }
+      // Fallback: distribute evenly.
+      final offsetS = (workout.durationSeconds * setIndex / totalSets).round();
+      return startUtc
+          .add(Duration(seconds: offsetS))
+          .toIso8601String()
+          .replaceFirst(RegExp(r'\.\d+'), '');
+    }
+
+    // Filter trailing zero-rep sets (B5 guard).
+    final filteredSplits = splits.reversed
+        .skipWhile((r) => r == 0)
+        .toList()
+        .reversed
+        .toList();
+    final totalSets = filteredSplits.length;
+
+    final setsJson = <Map<String, dynamic>>[];
+    for (var i = 0; i < totalSets; i++) {
+      final reps = filteredSplits[i];
+      if (reps == 0) continue;
+      setsJson.add({
+        'exercise_type': 'PUSH_UP_GENERIC',
+        'repetitions': reps,
+        'start_time': setStartTime(i, totalSets),
+      });
+    }
+
+    final body = <String, dynamic>{
+      'version': '1.0',
+      'start_time': startUtc.toIso8601String().replaceFirst(RegExp(r'\.\d+'), ''),
+      'utc_offset': utcOffsetS,
+      'elapsed_time': workout.durationSeconds,
+      'total_calories': calories,
+      'creator': {'name': 'ApexPush'},
+      'sets': setsJson,
+    };
+
+    return jsonEncode(body);
   }
 
   // ── Token management ───────────────────────────────────────────────────────

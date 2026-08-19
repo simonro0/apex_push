@@ -1,6 +1,6 @@
 # ApexPush – Codebase-Dokumentation
 
-> Zuletzt aktualisiert: 2026-05-25 (Strava: TCX-Upload statt manueller Aktivität + kombiniertes Bild-Teilen via System-Share)  
+> Zuletzt aktualisiert: 2026-08-19 (Strava: JSON-Upload mit Sätzen/Wdh. statt TCX; AudioService: onPlayerComplete-Seek für minimale Tap-Latenz)  
 > Basis: Aktueller Stand nach vollständiger Feature-Implementierung
 
 ---
@@ -283,7 +283,7 @@ Singleton mit Pre-loaded-Audio-Pool für minimale Latenz:
 | `playTargetReached()` | 1320 Hz, 200 ms | Satzziel erstmals erreicht                        |
 
 Töne werden zur Laufzeit als WAV-Bytes synthetisiert (kein Asset nötig); Bytes werden als Instanzfelder gespeichert.  
-Alle Play-Methoden nutzen `p.play(BytesSource(_bytes))` (kein `seek+resume`) — zuverlässig aus jedem Player-State.  
+Play-Methoden rufen nur `p.resume()` — ein `onPlayerComplete`-Listener seeked jeden Player asynchron nach Abschluss auf Position 0 zurück, sodass der nächste Aufruf sofort abspielen kann (kein seek auf dem heißen Pfad).  
 **5** `AudioPlayer` im Round-Robin für überlappende Rep-Ticks. Android-spezifisch: `AndroidAudioFocus.gainTransientMayDuck` für geringe Latenz.
 
 **`ShareService`** (`lib/logic/share_service.dart`)
@@ -307,17 +307,21 @@ Singleton für Strava OAuth2 und Aktivitäts-Export. Credentials werden **nicht*
 | `isConnected`            | Async getter — true wenn Access-Token in SecureStorage vorhanden            |
 | `connect()`              | OAuth2-Flow via `flutter_web_auth_2` (Custom Tab) + manueller Token-Exchange per HTTP POST |
 | `disconnect()`           | Löscht alle gespeicherten Tokens                                             |
-| `exportActivity(...)`    | Lädt Aktivität als TCX-Datei hoch (`POST /v3/uploads`, Multipart) + pollt `GET /v3/uploads/{id}` bis `activity_id` gesetzt ist; gibt `StravaSuccess(url)` / `StravaError` zurück |
+| `exportActivity(...)`    | Lädt Aktivität als JSON-Datei hoch (`POST /v3/uploads`, data_type=json) mit per-Satz-Übungsdaten + pollt `GET /v3/uploads/{id}` bis `activity_id` gesetzt ist; gibt `StravaSuccess(url)` / `StravaError` zurück |
 
-**TCX-Upload-Flow:**
-1. `_buildTcx(workout)` erzeugt minimales TCX-XML mit Start-/End-Trackpoint und Kalorien
-2. `POST /v3/uploads` mit `data_type=tcx`, `activity_type=weight_training`, Name, Beschreibung
+**JSON-Upload-Flow (Strava JSON v1.0):**
+1. `_buildJson(workout, splits, repDetails)` baut Strava-JSON-Datei:
+   - Felder: `version="1.0"`, `start_time`, `utc_offset`, `elapsed_time`, `total_calories`, `creator.name="ApexPush"`, `sets[]`
+   - Jeder Satz: `exercise_type="PUSH_UP_GENERIC"`, `repetitions`, `start_time` (aus erstem `RepDetail.timestampMs` des Satzes + Workout-Startzeit; Fallback: gleichmäßige Verteilung)
+   - Trailing-0-Sätze werden herausgefiltert (B5-Guard)
+2. `POST /v3/uploads` mit `data_type=json`, `sport_type=WeightTraining`, Name, Beschreibung
 3. `_pollUpload(uploadId, token)` pollt bis zu 12× alle 3 s (~36 s) bis `activity_id` nicht null → `StravaSuccess`
 4. Fehler (Strava-eigene Fehlermeldung oder Timeout) → `StravaError`
 
-Vorteil gegenüber `POST /v3/activities`: TCX-Upload erzeugt eine **aufgezeichnete Aktivität** (kein „Manual Entry"-Badge), die auf Strava vollwertig ist.
+Strava zeigt die Sätze mit Übungstyp und Wdh. nativ in der App an (Krafttraining-Ansicht).  
+Wichtig: `RepDetail.timestampMs` ist relativ zur Session (ms seit Start), nicht Epoch-ms.
 
-**Kombiniertes Bild-Teilen + App-Deep-Link (`_exportToStrava` in `SessionDetailScreen`):**
+**Kombiniertes Bild-Teilen + App-Deep-Link (`_exportToStrava` in `_ShareSheetState`):**
 - PNG-Capture via `ShareService.captureToFile()` **vor** dem Schließen des Sheets
 - Nach erfolgreichem Upload: `canLaunchUrl('strava://activities/{id}')` prüft ob die Strava-App installiert ist
   - Strava-App vorhanden → erste Snackbar zeigt **„IN APP ÖFFNEN"** (öffnet `strava://activities/{id}` direkt in der App)
@@ -509,7 +513,7 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | `url_launcher`               | Links im About-Screen                            |
 | `wakelock_plus`              | Display dauerhaft an während des Trainings       |
 | `flutter_web_auth_2`         | OAuth2 Custom Tab + Callback-Handling (Strava)   |
-| `http`                       | REST-API-Aufrufe (Strava TCX-Upload, Token-Exchange, Upload-Polling) |
+| `http`                       | REST-API-Aufrufe (Strava JSON-Upload, Token-Exchange, Upload-Polling) |
 | `flutter_secure_storage`     | AES-verschlüsselte Token-Ablage (Strava)         |
 
 ---
@@ -524,8 +528,8 @@ Migrationshistorie: v1 (Gemini-Stand) → v2 (isFreeTraining, levelId, difficult
 | F2 | Practice-Flow mit Empfehlung   | ✅ | Level-Empfehlung nach freiem Training implementiert                          |
 | F3 | Wochenübersicht                | ✅ | Streak (1-Tag-Toleranz), Volumen- und Tempo-Vergleich zur Vorwoche          |
 | F4 | Share-Feature (Phase 1)        | ✅ | Share-Karte via RepaintBoundary → PNG → share_plus in SessionDetailScreen    |
-| F4 | Strava-Integration (Phase 2)   | ✅ | OAuth2 via flutter_web_auth_2 (löst AppAuth-Task-Affinity-Problem), TCX-Upload (`POST /v3/uploads`) → aufgezeichnete Aktivität, Token-Refresh, reichhaltige Emoji-Beschreibung, kombiniertes PNG-Teilen via System-Share |
-| F5 | Strava-Übungen (Phase 3)       | 💡 | Strava zeigt in der UI neuerdings Übungen (Liegestütz, Sets, Wdh.) bei Krafttraining-Aktivitäten. **Strava API v3 exponiert dafür keinen dokumentierten Endpoint** — die Funktion ist in der UI neu und nicht via REST setzbar. Einzig möglicher Weg: **FIT-Datei-Upload** statt TCX. FIT (Garmins Binärformat) unterstützt `SET`-Messages mit Übungstyp (`PUSH_UP`), Wdh. und Dauer pro Satz nativ; Strava importiert diese dann korrekt. Aufwand: ~300–400 Zeilen Dart (Binär-Encoding, CRC-16), kein zusätzliches Package nötig. |
+| F4 | Strava-Integration (Phase 2)   | ✅ | OAuth2 via flutter_web_auth_2 (löst AppAuth-Task-Affinity-Problem), JSON-Upload (`POST /v3/uploads`, data_type=json) mit `PUSH_UP_GENERIC`-Sets → Strava zeigt Sätze+Wdh. nativ, Token-Refresh, reichhaltige Emoji-Beschreibung, kombiniertes PNG-Teilen via System-Share |
+| F5 | Strava-Übungen (Phase 3)       | ✅ | Implementiert via Strava JSON v1.0 Upload-Format (Mai 2026 eingeführt). Jeder Satz wird als `PUSH_UP_GENERIC`-Set mit Wdh. und Startzeitpunkt übertragen. Strava zeigt die Sätze in der Krafttraining-Ansicht. |
 
 ### Bekannte Bugs / Verbesserungsbedarf
 
