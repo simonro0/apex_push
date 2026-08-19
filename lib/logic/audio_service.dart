@@ -6,11 +6,11 @@ import 'package:flutter/foundation.dart';
 /// Singleton audio service.
 ///
 /// WAV bytes are synthesised once in [init] and each [AudioPlayer] source is
-/// pre-loaded with [AudioPlayer.setSource] so that subsequent play calls only
-/// need [AudioPlayer.seek] + [AudioPlayer.resume] — avoiding the
-/// setSource/prepare round-trip (~50–200 ms on Android) that causes sounds to
-/// be skipped during rapid rep sequences.  [ReleaseMode.stop] keeps the source
-/// loaded after playback completes so the seek+resume pattern always works.
+/// pre-loaded with [AudioPlayer.setSource].  An [AudioPlayer.onPlayerComplete]
+/// listener seeks each player back to zero after playback so that the next
+/// call only needs [AudioPlayer.resume] — one native round-trip instead of two.
+/// [ReleaseMode.stop] keeps the source loaded so seek/resume never triggers a
+/// new setSource/prepare cycle (~50–200 ms on Android).
 class AudioService {
   AudioService._();
   static final AudioService instance = AudioService._();
@@ -75,12 +75,15 @@ class AudioService {
         : AudioContext();
 
     // Pre-load rep pool (5 slots for rapid tap sequences).
+    // onPlayerComplete resets position to zero after each play so the next
+    // call only needs resume() — no seek+resume race condition.
     for (var i = 0; i < 5; i++) {
       final p = AudioPlayer();
       await p.setAudioContext(audioCtx);
       await p.setReleaseMode(ReleaseMode.stop);
       await p.setVolume(_volume);
       await p.setSource(BytesSource(_repBytes));
+      p.onPlayerComplete.listen((_) => p.seek(Duration.zero));
       _repPool.add(p);
     }
 
@@ -90,24 +93,28 @@ class AudioService {
     await _countdownPlayer.setReleaseMode(ReleaseMode.stop);
     await _countdownPlayer.setVolume(_volume);
     await _countdownPlayer.setSource(BytesSource(_countdownBytes));
+    _countdownPlayer.onPlayerComplete.listen((_) => _countdownPlayer.seek(Duration.zero));
 
     _restEndPlayer = AudioPlayer();
     await _restEndPlayer.setAudioContext(audioCtx);
     await _restEndPlayer.setReleaseMode(ReleaseMode.stop);
     await _restEndPlayer.setVolume(_volume);
     await _restEndPlayer.setSource(BytesSource(_restEndBytes));
+    _restEndPlayer.onPlayerComplete.listen((_) => _restEndPlayer.seek(Duration.zero));
 
     _targetPlayer = AudioPlayer();
     await _targetPlayer.setAudioContext(audioCtx);
     await _targetPlayer.setReleaseMode(ReleaseMode.stop);
     await _targetPlayer.setVolume(_volume);
     await _targetPlayer.setSource(BytesSource(_targetBytes));
+    _targetPlayer.onPlayerComplete.listen((_) => _targetPlayer.seek(Duration.zero));
 
     _milestonePlayer = AudioPlayer();
     await _milestonePlayer.setAudioContext(audioCtx);
     await _milestonePlayer.setReleaseMode(ReleaseMode.stop);
     await _milestonePlayer.setVolume(_volume);
     await _milestonePlayer.setSource(BytesSource(_milestoneBytes));
+    _milestonePlayer.onPlayerComplete.listen((_) => _milestonePlayer.seek(Duration.zero));
 
     _initialized = true;
   }
@@ -126,45 +133,39 @@ class AudioService {
 
   // ── Play API ───────────────────────────────────────────────────────────────
   //
-  // Each method seeks to the start and resumes.  Because the source is already
-  // loaded (setSource in init) and ReleaseMode.stop keeps it loaded after
-  // completion, seek+resume never triggers a new setSource/prepare cycle on
-  // Android — the latency is negligible and no sounds are dropped.
+  // Each method only calls resume() — the player is already at position zero
+  // because onPlayerComplete seeks back after every play.  This removes one
+  // native round-trip from the hot path so tap-to-sound latency is minimal.
 
   /// Short click on each rep count.
   void playRepTick() {
     if (!_initialized) return;
     final p = _repPool[_repIdx];
     _repIdx = (_repIdx + 1) % _repPool.length;
-    p.seek(Duration.zero);
     p.resume();
   }
 
   /// Intense tone played on every 10th rep (10, 20, 30, …).
   void playMilestone() {
     if (!_initialized) return;
-    _milestonePlayer.seek(Duration.zero);
     _milestonePlayer.resume();
   }
 
   /// Played at 3 / 2 / 1 seconds remaining in rest.
   void playCountdown() {
     if (!_initialized) return;
-    _countdownPlayer.seek(Duration.zero);
     _countdownPlayer.resume();
   }
 
   /// Played when rest ends and the next set begins.
   void playRestEnd() {
     if (!_initialized) return;
-    _restEndPlayer.seek(Duration.zero);
     _restEndPlayer.resume();
   }
 
   /// Played once when the rep count first reaches the set target.
   void playTargetReached() {
     if (!_initialized) return;
-    _targetPlayer.seek(Duration.zero);
     _targetPlayer.resume();
   }
 
